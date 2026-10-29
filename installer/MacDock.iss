@@ -1,4 +1,4 @@
-#define AppVersion "0.4.5"
+#define AppVersion "0.4.6"
 [Setup]
 AppId={{CC77C483-91CF-47D6-B644-93B47E1D7C84}
 AppName=MacDock

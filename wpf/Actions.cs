@@ -75,6 +75,7 @@ public static class Actions
     {
         switch (item.Type) {
             case "clock": case "cpu": case "memory": case "gpu": case "gpu-temperature": case "network-up": case "network-down": return;
+            case "usb-eject": System.Windows.MessageBox.Show(await UsbEject.Run(), "USB 모두 안전하게 제거", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information); return;
             case "volume": await Task.Run(() => Audio.Change(item.Target, item.VolumeStep)); return;
             case "macro": await Macro.Run(item.Target); return;
             case "media": if (!Macro.Media.Contains(item.Target)) throw new Exception("알 수 없는 미디어 명령입니다."); await Macro.Run(item.Target); return;
@@ -87,4 +88,3 @@ public static class Actions
         Process.Start(new ProcessStartInfo(item.Target) { UseShellExecute = true });
     }
 }
-

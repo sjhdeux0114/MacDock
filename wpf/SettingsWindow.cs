@@ -18,7 +18,7 @@ public sealed class SettingsWindow : Window
     readonly TextBlock status = new() { Text = "준비됨", Margin = new(30,10,30,10) };
     readonly Dictionary<TextBox, Func<bool>> validators = new();
     bool autoStart = AutoStart.Enabled();
-    static readonly (string Key, string Label)[] Types = { ("url", "웹사이트"), ("program", "프로그램"), ("folder", "지정 폴더 열기"), ("path", "파일 / 폴더"), ("clock", "실시간 시계"), ("cpu", "CPU 사용량"), ("memory", "메모리 사용량"), ("gpu", "GPU 사용량 (NVIDIA)"), ("gpu-temperature", "GPU 온도 (NVIDIA)"), ("network-up", "이더넷 업로드"), ("network-down", "이더넷 다운로드"), ("macro", "키 매크로 / 텍스트"), ("media", "미디어 제어"), ("volume", "시스템 볼륨") };
+    static readonly (string Key, string Label)[] Types = { ("url", "웹사이트"), ("program", "프로그램"), ("folder", "지정 폴더 열기"), ("path", "파일 / 폴더"), ("clock", "실시간 시계"), ("cpu", "CPU 사용량"), ("memory", "메모리 사용량"), ("gpu", "GPU 사용량 (NVIDIA)"), ("gpu-temperature", "GPU 온도 (NVIDIA)"), ("network-up", "이더넷 업로드"), ("network-down", "이더넷 다운로드"), ("macro", "키 매크로 / 텍스트"), ("media", "미디어 제어"), ("volume", "시스템 볼륨"), ("usb-eject", "USB 모두 안전하게 제거") };
     public SettingsWindow(DockWindow dock)
     {
         this.dock = dock; draft = dock.Config.Clone(); Title = "MacDock WPF 설정"; Icon = AppIcons.WindowIcon(); Width = 940; Height = 800; MinWidth = 740; MinHeight = 550;
@@ -107,6 +107,7 @@ public sealed class SettingsWindow : Window
                 content.Children.Add(Text("예: 5%p로 설정하면 40% → 45%가 됩니다. Windows 기본 출력 장치를 제어합니다.",12,"#94A3B8"));
             }
         } else if (item.Type == "media") content.Children.Add(Choices(new[] { ("PLAYPAUSE","재생 / 일시정지"),("NEXT","다음 곡"),("PREVIOUS","이전 곡"),("STOP","정지"),("MUTE","음소거"),("VOLUMEUP","볼륨 증가 (Windows 기본 폭)"),("VOLUMEDOWN","볼륨 감소 (Windows 기본 폭)") },item.Target,value => item.Target = value));
+        else if (item.Type == "usb-eject") content.Children.Add(Text("USB 메모리·외장 HDD/SSD를 모두 안전하게 제거합니다. 사용 중인 장치는 강제 제거하지 않으며, 완료·실패 결과를 표시합니다. 키보드·마우스·USB 허브는 제외됩니다.",12,"#98D2CA"));
         else if (item.Type == "clock") content.Children.Add(Choices(new[] { ("24h","24시간"),("12h","12시간") },item.Target,value => item.Target = value));
         else if (!new[] { "cpu","memory","gpu","gpu-temperature","network-up","network-down" }.Contains(item.Type)) {
             var target = Input(item.Target,"URL / 경로 / 매크로",value => {
@@ -176,4 +177,3 @@ public sealed class SettingsWindow : Window
         catch (Exception error) { status.Text = error.Message; }
     }
 }
-

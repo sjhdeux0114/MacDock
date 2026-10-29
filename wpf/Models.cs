@@ -61,7 +61,7 @@ public sealed class DockConfig
         var ids = new HashSet<string>();
         foreach (var b in Buttons)
         {
-            if (b == null || !new[] { "url", "program", "path", "folder", "clock", "cpu", "memory", "gpu", "gpu-temperature", "network-up", "network-down", "macro", "media", "volume" }.Contains(b.Type)) throw new Exception("지원하지 않는 버튼 종류입니다.");
+            if (b == null || !new[] { "url", "program", "path", "folder", "clock", "cpu", "memory", "gpu", "gpu-temperature", "network-up", "network-down", "macro", "media", "volume", "usb-eject" }.Contains(b.Type)) throw new Exception("지원하지 않는 버튼 종류입니다.");
             if (string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id)) { b.Id = Guid.NewGuid().ToString(); ids.Add(b.Id); }
             if (b.Label == null || b.Label.Length > 80 || b.Icon == null || b.Icon.Length > 16 || b.Target == null || b.Target.Length > 8192) throw new Exception("버튼 이름 또는 내용이 너무 깁니다.");
             if (!Regex.IsMatch(b.Color ?? "", "^#[0-9a-fA-F]{6}$")) throw new Exception("버튼 색상은 #387ee8 같은 형식입니다.");
@@ -97,4 +97,3 @@ public static class Store
         config.Validate(); return (config, removed);
     }
 }
-

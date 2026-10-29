@@ -14,6 +14,20 @@ public static class SelfTest
             int passed = 0;
             void Check(bool condition,string name) { if (!condition) throw new Exception(name); passed++; }
             void Reject(Action test,string name) { try { test(); } catch { passed++; return; } throw new Exception(name); }
+            Check(UsbEject.SelectTarget(new UsbEject.Node[] { new(1,"SCSI\\disk","disk",0), new(2,"USB\\VID_1234","UASPStor",4) })?.DevInst == 2, "UASP external SSD selection");
+            Check(UsbEject.SelectTarget(new UsbEject.Node[] { new(1,"USBSTOR\\disk","disk",4), new(2,"USB\\VID_1234","USBSTOR",4) })?.DevInst == 1, "USB flash nearest removable node");
+            Check(UsbEject.SelectTarget(new UsbEject.Node[] { new(1,"SCSI\\disk","disk",4), new(2,"PCI\\disk","storahci",0) }) == null, "Exclude internal SATA disk");
+            Check(UsbEject.SelectTarget(new UsbEject.Node[] { new(1,"SCSI\\disk","disk",0), new(2,"USB\\VID_1234","USBSTOR",0), new(3,"USB\\hub","USBHUB3",4) }) == null, "Never eject USB hub");
+            Check(UsbEject.SelectTarget(new UsbEject.Node[] { new(1,"SCSI\\disk","disk",0), new(2,"USB\\VID_1234&MI_00","UASPStor",0), new(3,"USB\\VID_1234","usbccgp",4) }) == null, "Never eject composite parent");
+            int ejectCalls = 0;
+            var ejectResult = UsbEject.Eject(new[] { new UsbEject.Device("one","USB A"), new UsbEject.Device("ONE","USB A partition 2"), new UsbEject.Device("two","USB B"), new UsbEject.Device("three","USB C") }, d => { ejectCalls++; if (d.Id == "one") return "사용 중"; if (d.Id == "two") throw new Exception("분리됨"); return null; });
+            Check(ejectCalls == 3 && ejectResult.Contains("완료 1개 / 실패 2개") && ejectResult.Contains("USB C"), "Deduplicate devices and continue after veto or unplug");
+            Check(UsbEject.Eject(Array.Empty<UsbEject.Device>(), _ => throw new Exception()).Contains("없습니다"), "No USB devices");
+            var usbConfig = new DockConfig { Buttons = new() { new DockItem { Type = "usb-eject", Label = "USB 모두 제거" } } }; usbConfig.Validate();
+            Check(usbConfig.Clone().Buttons.Single().Type == "usb-eject" && Presets.Items.Any(p => p.Type == "usb-eject"), "USB config and preset round trip");
+            File.WriteAllText(Path.Combine(output,"usb-discovery.txt"), string.Join("\n", UsbEject.Discover().Select(d => d.Name + " | " + d.Id)));
+            Check(true, "Native USB discovery (read only; no devices ejected)");
+
             var config = DockConfig.Default(); config.Validate(); Check(config.Buttons.Any(b => b.Type == "volume"),"Volume defaults");
             Check(System.Text.Json.JsonSerializer.Deserialize<DockConfig>("{\"bottom\":17}", Store.Json) is { Position: "bottom", Bottom: 17 }, "Legacy dock position");
             foreach (string position in new[] { "bottom", "top", "left", "right" }) {
@@ -52,8 +66,7 @@ public static class SelfTest
             restored.Buttons.Last().VolumeStep = 9; Store.Save(restored); Check(Store.Load().Buttons.Last().VolumeStep == 9 && File.Exists(Store.FileName + ".bak"),"Atomic save and backup");
             restored.Buttons.Last().VolumeStep = 0; Reject(restored.Validate,"Volume validation");
             var importPath = Path.Combine(output,"electron-fixture.json"); File.WriteAllText(importPath,"{\"size\":52,\"buttons\":[{\"type\":\"extension\"},{\"type\":\"macro\",\"target\":\"Ctrl+C\"}]}"); var imported = Store.Import(importPath); Check(imported.Skipped == 1 && imported.Config.Buttons.Count == 1,"Electron import");
-            File.WriteAllText(Path.Combine(output,"tests-result.txt"),$"PASS: {passed} checks. No keys sent; no system volume changes."); return 0;
+            File.WriteAllText(Path.Combine(output,"tests-result.txt"),$"PASS: {passed} checks. No keys sent; no system volume changes; no USB devices ejected."); return 0;
         } catch (Exception error) { File.WriteAllText(Path.Combine(output,"tests-result.txt"),error.ToString()); return 1; }
     }
 }
-

@@ -11,11 +11,10 @@ public static class Presets
         ("파일 탐색기", "program", "explorer.exe", "▰"), ("작업 관리자", "program", "taskmgr.exe", "▥"),
         ("Windows 설정", "program", "ms-settings:", "⚙"), ("화면 캡처", "macro", "Win+Shift+S", "✂"),
         ("복사", "macro", "Ctrl+C", "⧉"), ("붙여넣기", "macro", "Ctrl+V", "▣"), ("실행 취소", "macro", "Ctrl+Z", "↶"),
-        ("전체 선택", "macro", "Ctrl+A", "▧"), ("저장", "macro", "Ctrl+S", "▣")
+        ("전체 선택", "macro", "Ctrl+A", "▧"), ("저장", "macro", "Ctrl+S", "▣"), ("USB 모두 제거", "usb-eject", "", "⏏")
     };
     public static DockItem Create(int index)
     {
         var p = Items[index]; return new DockItem { Label = p.Name, Type = p.Type, Target = p.Target, Icon = p.Icon, Color = p.Type == "macro" ? "#59687d" : "#387e98" };
     }
 }
-

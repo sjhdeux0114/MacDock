@@ -151,7 +151,7 @@ public sealed class DockWindow : Window
                 try { tile.Frames = ImageFrames.Load(item.Image); tile.Image = new Image { Source = tile.Frames.Frames[0], Stretch = Stretch.UniformToFill }; view.Child = tile.Image; view.Clip = new RectangleGeometry(new Rect(0,0,Config.Size,Config.Size),14,14); }
                 catch { view.ToolTip = item.Label + " · 이미지 형식을 확인하세요"; }
             }
-            if (item.Type == "folder" || item.Type == "path" || item.Type == "macro" || item.Type == "program") {
+            if (item.Type == "folder" || item.Type == "path" || item.Type == "macro" || item.Type == "program" || item.Type == "usb-eject") {
                 var graphic = (UIElement)view.Child; view.Child = null;
                 var folderContent = new Grid();
                 folderContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -168,7 +168,7 @@ public sealed class DockWindow : Window
                 try {
                     if (item.Type == "settings") OpenSettings();
                     else if (item.Type == "previous-page" || item.Type == "next-page") { page = (page + (item.Type == "next-page" ? 1 : -1) + (Config.Buttons.Count - 1) / pageSize + 1) % ((Config.Buttons.Count - 1) / pageSize + 1); Rebuild(); }
-                    else { await Actions.Run(item); if (item.Type == "volume") Sample(); }
+                    else { if (item.Type == "usb-eject") Notify("USB 저장장치를 안전하게 제거하는 중입니다…"); await Actions.Run(item); if (item.Type == "volume") Sample(); }
                 } catch (Exception error) { Notify(error.Message); }
             };
             canvas.Children.Add(view); tiles.Add(tile);
@@ -253,4 +253,3 @@ public sealed class DockWindow : Window
         if (MeasureFrames) FrameWorkMilliseconds.Add(Stopwatch.GetElapsedTime(workStart).TotalMilliseconds);
     }
 }
-
