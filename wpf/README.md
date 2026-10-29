@@ -1,4 +1,4 @@
-# MacDock WPF v0.4.4
+# MacDock WPF v0.4.5
 
 사용법과 지원 범위는 [메인 설명서](../README.md)를 참고하세요. 이 디렉터리는 현재 배포되는 WPF 앱입니다.
 

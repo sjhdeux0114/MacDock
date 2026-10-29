@@ -15,6 +15,17 @@ public static class SelfTest
             void Check(bool condition,string name) { if (!condition) throw new Exception(name); passed++; }
             void Reject(Action test,string name) { try { test(); } catch { passed++; return; } throw new Exception(name); }
             var config = DockConfig.Default(); config.Validate(); Check(config.Buttons.Any(b => b.Type == "volume"),"Volume defaults");
+            Check(System.Text.Json.JsonSerializer.Deserialize<DockConfig>("{\"bottom\":17}", Store.Json) is { Position: "bottom", Bottom: 17 }, "Legacy dock position");
+            foreach (string position in new[] { "bottom", "top", "left", "right" }) {
+                var positioned = config.Clone(); positioned.Position = position; positioned.Validate();
+                Store.Folder = Path.Combine(output,"position-profile"); Store.Save(positioned);
+                Check(Store.Load().Position == position && positioned.Clone().Position == position, "Position persistence: " + position);
+            }
+            var invalidPosition = config.Clone(); invalidPosition.Position = "diagonal"; Reject(invalidPosition.Validate, "Invalid dock position");
+            Check(DockWindow.PageCapacity(720, 52, 8, 1.7, 100) >= 8, "Vertical capacity at 150 percent DPI");
+            Check(DockWindow.PageCapacity(500, 52, 8, 1.7, 100) >= 5, "Short screen capacity");
+            Check(DockWindow.PageCapacity(720, 52, 8, 1.7, 8) == 8, "No unnecessary page arrows");
+            Check(DockWindow.ArrowLength(52) == 20 && DockWindow.ArrowLength(80) == 28, "Compact arrow buttons");
             var steps = Macro.Parse("Ctrl+C\nwait 300\nCtrl+V\ntext 안녕하세요"); Check(steps.Count == 4 && steps[0].Keys!.SequenceEqual(new ushort[] {17,67}) && steps[3].Text == "안녕하세요","Macro sequence");
             Reject(() => Macro.Parse("Ctrl+Ctrl+C"),"Duplicate modifiers"); Reject(() => Macro.Parse("wait 10001"),"Long delay"); Reject(() => Macro.Parse("NoSuchKey"),"Invalid key");
             Check(Marshal.SizeOf<Native.Input>() == 40,"x64 INPUT ABI");

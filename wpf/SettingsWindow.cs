@@ -55,12 +55,14 @@ public sealed class SettingsWindow : Window
         monitors.AddRange(Forms.Screen.AllScreens.Select(s => (s.DeviceName, s.DeviceName + " · " + s.Bounds.Width + " × " + s.Bounds.Height)));
         if (!string.IsNullOrEmpty(draft.Monitor) && !monitors.Any(m => m.Item1 == draft.Monitor)) monitors.Add((draft.Monitor, draft.Monitor + " · 연결되지 않음 (기본 모니터 사용)"));
         body.Children.Add(Choices(monitors, draft.Monitor, value => draft.Monitor = value));
+        body.Children.Add(Text("독 위치",13));
+        body.Children.Add(Choices(new[] { ("bottom","하단"), ("top","상단"), ("left","왼쪽 (세로)"), ("right","오른쪽 (세로)") }, draft.Position, value => draft.Position = value));
         AddSlider("버튼 크기 (px)",draft.Size,32,80,1,value => draft.Size = value);
         AddSlider("확대 배율",draft.Zoom,1,2.2,.1,value => draft.Zoom = value);
         AddSlider("버튼 간격 (px)",draft.Gap,4,20,1,value => draft.Gap = value);
-        AddSlider("하단 여백 (px)",draft.Bottom,0,100,1,value => draft.Bottom = value);
+        AddSlider("가장자리 여백 (px)",draft.Bottom,0,100,1,value => draft.Bottom = value);
         var magnify = new CheckBox { Content = "마우스를 가까이 가져가면 확대", IsChecked = draft.Magnify }; magnify.Checked += (_,_) => draft.Magnify = true; magnify.Unchecked += (_,_) => draft.Magnify = false; body.Children.Add(magnify);
-        body.Children.Add(Text("Windows 작업 표시줄을 피해서 배치합니다. 버튼이 많으면 독 위에서 휠 또는 ‹ › 버튼으로 페이지를 전환합니다.",12,"#94A3B8"));
+        body.Children.Add(Text("Windows 작업 표시줄을 피해서 배치합니다. 버튼이 많으면 독 위에서 휠 또는 방향 버튼으로 페이지를 전환합니다.",12,"#94A3B8"));
         var startup = new CheckBox { Content = "Windows 시작 시 자동 실행 (현재 사용자 로그인 시)", IsChecked = autoStart };
         startup.Checked += (_,_) => autoStart = true; startup.Unchecked += (_,_) => autoStart = false; body.Children.Add(startup);
         var toolbar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new(0,14,0,14) };

@@ -30,13 +30,25 @@ public static class Program
             if (File.Exists(Store.FileName)) File.Copy(Store.FileName,Store.FileName + ".invalid-" + DateTime.Now.ToString("yyyyMMddHHmmss"),false);
             config = DockConfig.Default();
         }
+        if (smoke) {
+            config.Position = args.FirstOrDefault(a => a.StartsWith("--position="))?.Split('=')[1] ?? "bottom";
+            config.Validate();
+        }
         var dock = new DockWindow(config); app.MainWindow = dock; dock.Show();
         if (args.Contains("--settings")) dock.OpenSettings();
         if (smoke) {
             dock.MeasureFrames = true;
             var sweep = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             var sweepClock = System.Diagnostics.Stopwatch.StartNew();
-            sweep.Tick += (_,_) => dock.TestPointer = new Point(dock.ActualWidth / 2 + Math.Sin(sweepClock.Elapsed.TotalSeconds * 4) * 250, dock.ActualHeight - 40);
+            sweep.Tick += (_,_) => {
+                double wave = Math.Sin(sweepClock.Elapsed.TotalSeconds * 4);
+                dock.TestPointer = config.Position switch {
+                    "left" => new Point(40, dock.ActualHeight / 2 + wave * dock.ActualHeight / 3),
+                    "right" => new Point(dock.ActualWidth - 40, dock.ActualHeight / 2 + wave * dock.ActualHeight / 3),
+                    "top" => new Point(dock.ActualWidth / 2 + wave * dock.ActualWidth / 3, 40),
+                    _ => new Point(dock.ActualWidth / 2 + wave * dock.ActualWidth / 3, dock.ActualHeight - 40)
+                };
+            };
             sweep.Start();
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             timer.Tick += (_,_) => {
@@ -44,7 +56,17 @@ public static class Program
                 try {
                     Directory.CreateDirectory(testOutput);
                     if (dock.VisibleTileCount < 2) throw new Exception("독 버튼이 렌더링되지 않았습니다.");
-                    Capture(dock,Path.Combine(testOutput,"dock.png"));
+                    bool vertical = config.Position is "left" or "right";
+                    if (vertical ? dock.ActualHeight <= dock.ActualWidth : dock.ActualWidth <= dock.ActualHeight) throw new Exception("Dock orientation mismatch");
+                    var tileViews = ((System.Windows.Controls.Canvas)dock.Content).Children.OfType<System.Windows.Controls.Border>().Where(v => v.Cursor == System.Windows.Input.Cursors.Hand).ToArray();
+                    Rect? previous = null;
+                    foreach (var view in tileViews) {
+                        var bounds = view.RenderTransform.TransformBounds(new Rect(0, 0, view.Width, view.Height));
+                        if (bounds.Left < 0 || bounds.Top < 0 || bounds.Right > dock.ActualWidth || bounds.Bottom > dock.ActualHeight) throw new Exception("Tile clipped: " + config.Position);
+                        if (previous is Rect prior && (vertical ? bounds.Top < prior.Bottom : bounds.Left < prior.Right)) throw new Exception("Overlapping tiles");
+                        previous = bounds;
+                    }
+                    Capture(dock,Path.Combine(testOutput,"dock-" + config.Position + ".png"));
                     var settings = new SettingsWindow(dock); settings.Show(); settings.UpdateLayout();
                     Capture(settings,Path.Combine(testOutput,"settings.png"));
                     var picker = new IconPicker("#386976"); picker.Show(); picker.UpdateLayout(); Capture(picker,Path.Combine(testOutput,"icons.png")); picker.Close();
