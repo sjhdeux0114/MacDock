@@ -1,0 +1,35 @@
+{
+  "name": "macdock",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone Windows macro dock",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "app.macdock.desktop",
+    "productName": "MacDock",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "koffi": "^3.3.5"
+  }
+}

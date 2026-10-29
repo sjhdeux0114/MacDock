@@ -1,0 +1,91 @@
+# MacDock
+
+Windows 모니터 하단에 배치하는 한 줄 매크로 독입니다. 마우스를 가까이 가져가면 버튼이 확대되고, 프로그램·폴더·키 매크로·시스템 정보를 한곳에서 사용할 수 있습니다.
+
+현재 배포 버전은 **WPF v0.4.3 / Windows x64**입니다. Deckboard나 Electron 없이 실행됩니다. Deckboard 확장은 지원하지 않습니다. 기존 Electron 프로토타입 소스는 보존했습니다.
+
+## 다운로드 및 실행
+
+[최신 릴리스 다운로드](https://github.com/sjhdeux0114/MacDock/releases/latest)
+
+| 파일 | 실행 방법 |
+| --- | --- |
+| MacDock-v0.4.3-win-x64-standalone.zip | 압축을 풀고 MacDock.Wpf.exe 실행. .NET 런타임 포함 |
+| MacDock-v0.4.3-win-x64-compact.zip | .NET 10 Desktop Runtime x64 설치 후 압축을 풀고 Run-MacDock.cmd 실행 |
+
+실행 파일 크기는 standalone 약 72 MiB, compact 약 344 KiB입니다. Windows 10/11 x64용이며 모든 OS·장치 조합에서 검증된 것은 아닙니다. 현재 배포 파일은 코드 서명되지 않았습니다.
+
+업데이트는 기존 독을 **트레이 메뉴 → 종료**로 닫고 새 버전을 실행하세요. 설정은 유지됩니다. 자동시작을 사용한다면 새 버전에서 **변경 저장**을 눌러 실행 경로를 갱신하세요.
+
+## 시작하기
+
+1. 독의 톱니바퀴 또는 트레이 아이콘에서 설정을 엽니다.
+2. 모니터, 버튼 크기, 확대 배율, 간격과 하단 여백을 선택합니다.
+3. **빠른 추가**에서 계산기·메모장·폴더·매크로·시스템 정보 버튼을 추가합니다.
+4. 이름, 동작, 아이콘과 색상을 편집한 뒤 **변경 저장**을 누릅니다.
+
+버튼이 많으면 독 위에서 마우스 휠 또는 ‹ / › 버튼으로 페이지를 전환합니다. 확대 효과는 설정에서 끌 수 있으며 Windows 애니메이션 설정도 따릅니다.
+
+## 기능
+
+- 선택한 모니터의 작업 표시줄 위에 한 줄 배치, 마우스 거리 기반 확대
+- 웹사이트·프로그램·파일·지정 폴더 열기
+- 계산기, 메모장, 그림판, 탐색기, 작업 관리자, Windows 설정 빠른 추가
+- 폴더·프로그램·매크로 아이콘 아래 이름 표시, 긴 이름 말줄임
+- 폴더 선택 시 마지막 폴더 이름 자동 입력 및 사용자 수정
+- 내장 아이콘 40종, 색상표 24색, 사용자 이미지와 GIF
+- 시계, CPU/RAM 사용률, NVIDIA GPU 사용량과 온도, 이더넷 UP/DOWN
+- 키 매크로 녹화, 키 조합·대기·텍스트 입력
+- 미디어 제어, 시스템 볼륨 올리기·내리기·음소거, 조절 폭 1~100%p 지정
+- Windows 로그인 시 자동시작 체크박스
+- 설정 가져오기/내보내기, 트레이 메뉴, 중복 실행 방지
+
+## 키 매크로
+
+**직접 매크로**를 누르거나 버튼 종류를 **키 매크로 / 텍스트**로 선택합니다. 한 줄에 한 단계씩 입력합니다.
+
+```text
+Ctrl+C
+wait 300
+Ctrl+V
+text 안녕하세요
+```
+
+**키 녹화 → 녹화 시작**을 누르고 녹화 창에서 키를 입력하세요. **F8 또는 중지**로 끝내고 **입력에 적용**을 누릅니다. 다른 창으로 이동하면 녹화가 중지됩니다. 입력 사이 대기 시간을 포함할 수도 있습니다. Windows 키 조합은 `Win+Shift+S`처럼 직접 입력하세요. 녹화는 문자 받아쓰기가 아니므로 한글 문장은 `text` 명령으로 입력하세요.
+
+매크로는 독을 클릭하기 전 사용하던 앱으로 전달됩니다. 관리자 권한 앱에는 Windows 권한 제한으로 입력이 차단될 수 있습니다. 최대 100단계, 대기는 단계당 10초·전체 30초입니다.
+
+## 시스템 정보 지원 범위
+
+| 버튼 | 측정 범위 |
+| --- | --- |
+| CPU / RAM | 시스템 전체 사용률, 약 1초 간격 |
+| GPU / GPU 온도 | NVIDIA nvidia-smi의 GPU 0, 약 3초 간격. 현재 AMD/Intel 미지원 |
+| 이더넷 UP / DOWN | 연결된 물리 유선 어댑터 합계, 약 1초 간격. Wi-Fi·VPN·가상 어댑터 제외 |
+
+네트워크 단위는 초당 **바이트**이며 KB=1,000 B, MB=1,000,000 B입니다. 첫 측정 대기, 연결 끊김 또는 미지원 값은 `—`로 표시됩니다. 버튼에 마우스를 올리면 장치 정보를 확인할 수 있습니다. GPU 측정은 NVIDIA 드라이버가 설치한 시스템 폴더의 `nvidia-smi.exe`를 사용합니다.
+
+## 설정과 자동시작
+
+설정 위치: `%APPDATA%\MacDock.Wpf\settings.json`. 저장 시 이전 설정은 `settings.json.bak`으로 보관됩니다. Electron 설정과는 별도입니다. Electron JSON을 가져오면 확장 버튼은 제외됩니다.
+
+**Windows 시작 시 자동 실행**을 체크하고 저장하면 현재 사용자 로그인 시 실행됩니다. 체크 해제 후 저장하면 제거됩니다. 배포 폴더의 위치를 먼저 정한 뒤 설정하세요.
+
+이미지는 PNG/JPEG/GIF/BMP를 지원하며 WebP는 지원하지 않습니다. GIF는 최대 300프레임입니다.
+
+## 개발 및 검증
+
+Windows와 .NET 10 SDK가 필요합니다.
+
+```powershell
+dotnet build wpf/MacDock.Wpf.csproj -c Release
+dotnet run --project wpf/MacDock.Wpf.csproj -c Release -- --settings
+dotnet run --project wpf/MacDock.Wpf.csproj -c Release -- --self-test
+dotnet run --project wpf/MacDock.Wpf.csproj -c Release -- --smoke-test
+```
+
+검증 결과는 `wpf/test-output/`에 저장됩니다. self-test는 파싱·설정·계산·이미지 검증 및 하드웨어 읽기를, smoke-test는 별도 프로필로 UI와 장치 읽기를 확인합니다. 실제 키 전송·볼륨 변경·로그인 자동시작 동작은 자동 검사하지 않습니다.
+
+[WPF 빌드 안내](wpf/README.md) · [변경 내역](CHANGELOG.md) · [보존된 Electron 프로토타입 안내](docs/ELECTRON.md)
+
+MacDock은 Deckboard 및 Apple과 독립적인 프로젝트입니다.
