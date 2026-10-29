@@ -2,7 +2,7 @@
 
 Windows 모니터 하단에 배치하는 한 줄 매크로 독입니다. 마우스를 가까이 가져가면 버튼이 확대되고, 프로그램·폴더·키 매크로·시스템 정보를 한곳에서 사용할 수 있습니다.
 
-현재 배포 버전은 **WPF v0.4.3 / Windows x64**입니다. Deckboard나 Electron 없이 실행됩니다. Deckboard 확장은 지원하지 않습니다. 기존 Electron 프로토타입 소스는 보존했습니다.
+현재 배포 버전은 **WPF v0.4.4 / Windows x64**입니다. Deckboard나 Electron 없이 실행됩니다. Deckboard 확장은 지원하지 않습니다.
 
 ## 다운로드 및 실행
 
@@ -10,12 +10,14 @@ Windows 모니터 하단에 배치하는 한 줄 매크로 독입니다. 마우�
 
 | 파일 | 실행 방법 |
 | --- | --- |
-| MacDock-v0.4.3-win-x64-standalone.zip | 압축을 풀고 MacDock.Wpf.exe 실행. .NET 런타임 포함 |
-| MacDock-v0.4.3-win-x64-compact.zip | .NET 10 Desktop Runtime x64 설치 후 압축을 풀고 Run-MacDock.cmd 실행 |
+| MacDock-v0.4.4-win-x64-Setup.exe (권장) | 설치 마법사 실행. .NET 런타임 포함 |
 
-실행 파일 크기는 standalone 약 72 MiB, compact 약 344 KiB입니다. Windows 10/11 x64용이며 모든 OS·장치 조합에서 검증된 것은 아닙니다. 현재 배포 파일은 코드 서명되지 않았습니다.
+
+설치 파일에는 실행에 필요한 .NET 런타임이 포함됩니다. Windows 10/11 x64용이며 모든 OS·장치 조합에서 검증된 것은 아닙니다. 현재 배포 파일은 코드 서명되지 않았습니다.
 
 업데이트는 기존 독을 **트레이 메뉴 → 종료**로 닫고 새 버전을 실행하세요. 설정은 유지됩니다. 자동시작을 사용한다면 새 버전에서 **변경 저장**을 눌러 실행 경로를 갱신하세요.
+
+설치 파일은 현재 사용자 계정의 `%LOCALAPPDATA%\Programs\MacDock`에 설치하며 시작 메뉴 바로가기를 만듭니다. 바탕화면 바로가기는 선택 사항입니다. Windows 설정의 설치된 앱에서 제거할 수 있으며 사용자 설정은 보존됩니다. 기존 자동시작이 활성화되어 있다면 설치 경로로 갱신됩니다.
 
 ## 시작하기
 
@@ -86,6 +88,8 @@ dotnet run --project wpf/MacDock.Wpf.csproj -c Release -- --smoke-test
 
 검증 결과는 `wpf/test-output/`에 저장됩니다. self-test는 파싱·설정·계산·이미지 검증 및 하드웨어 읽기를, smoke-test는 별도 프로필로 UI와 장치 읽기를 확인합니다. 실제 키 전송·볼륨 변경·로그인 자동시작 동작은 자동 검사하지 않습니다.
 
-[WPF 빌드 안내](wpf/README.md) · [변경 내역](CHANGELOG.md) · [보존된 Electron 프로토타입 안내](docs/ELECTRON.md)
+[WPF 빌드 안내](wpf/README.md) · [변경 내역](CHANGELOG.md)
 
 MacDock은 Deckboard 및 Apple과 독립적인 프로젝트입니다.
+
+
