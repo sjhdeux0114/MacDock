@@ -16,10 +16,10 @@ public static class Presets
         ("제어판", "program", System.IO.Path.Combine(Environment.SystemDirectory, "control.exe"), "⚙"),
         ("장치 관리자", "program", System.IO.Path.Combine(Environment.SystemDirectory, "devmgmt.msc"), "▦"),
         ("전원 관리", "program", System.IO.Path.Combine(Environment.SystemDirectory, "powercfg.cpl"), "ϟ"),
-        ("Windows 자동 종료", "shutdown-timer", "", "⏻")
+        ("Windows 자동 종료", "shutdown-timer", "", "⏻"), ("사운드 재생", "sound", "", "♫"), ("타이머", "countdown", "", "◴")
     };
     public static DockItem Create(int index)
     {
-        var p = Items[index]; return new DockItem { Label = p.Name, Type = p.Type, Target = p.Target, Icon = p.Icon, Color = p.Type == "macro" ? "#59687d" : "#387e98" };
+        var p = Items[index]; return new DockItem { Label = p.Name, Sound = p.Type == "sound" ? Soundboard.DefaultSound : Soundboard.DefaultAlarm, Type = p.Type, Target = p.Target, Icon = p.Icon, Color = p.Type == "macro" ? "#59687d" : "#387e98" };
     }
 }

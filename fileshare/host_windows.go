@@ -54,6 +54,7 @@ func (h *host) command(folder, op, payload string) (map[string]any, error) {
 		if err != nil {
 			return nil, err
 		}
+		app.changeFirewallPort = updateFirewallPort
 		h.app = app
 	}
 	switch op {

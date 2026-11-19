@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -71,5 +72,34 @@ func TestDockServerLifecycle(t *testing.T) {
 	}
 	if op("start", "")["activePort"] != port {
 		t.Fatal("restart did not reuse port")
+	}
+}
+
+func TestFirewallFailurePreservesSettings(t *testing.T) {
+	var h host
+	folder := t.TempDir()
+	if _, err := h.command(folder, "info", ""); err != nil {
+		t.Fatal(err)
+	}
+	defer h.app.root.Close()
+	previous := h.app.config
+	h.app.changeFirewallPort = func(port int) error {
+		if port != 9123 {
+			t.Fatalf("unexpected firewall port %d", port)
+		}
+		return errors.New("approval cancelled")
+	}
+	payload, _ := json.Marshal(map[string]any{"sharedRoot": t.TempDir(), "port": 9123, "password": "test-password"})
+	if _, err := h.command(folder, "save", string(payload)); err == nil {
+		t.Fatal("expected failure")
+	}
+	saved, err := readINI(h.app.configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []Config{h.app.config, saved} {
+		if c.Port != previous.Port || c.SharedRoot != previous.SharedRoot || c.PasswordHash != previous.PasswordHash || !c.NeedsSetup {
+			t.Fatal("previous settings were not restored")
+		}
 	}
 }

@@ -10,7 +10,7 @@ using Forms = System.Windows.Forms;
 
 namespace MacDock;
 
-public sealed class SettingsWindow : Window
+public sealed partial class SettingsWindow : Window
 {
     readonly TabControl tabs = new();
     readonly FileShareSettings share = new();
@@ -24,17 +24,17 @@ public sealed class SettingsWindow : Window
     readonly DockWindow dock;
     DockConfig draft;
     readonly StackPanel body = new();
-    readonly TextBlock status = new() { Text = "준비됨", Margin = new(30,10,30,10) };
+    readonly TextBlock status = new() { Margin = new(30,10,30,10) };
     readonly Dictionary<TextBox, Func<bool>> validators = new();
     bool autoStart = AutoStart.Enabled();
-    static readonly (string Key, string Label)[] Types = { ("url", "웹사이트"), ("program", "프로그램"), ("folder", "지정 폴더 열기"), ("path", "파일 / 폴더"), ("clock", "실시간 시계"), ("cpu", "CPU 사용량"), ("memory", "메모리 사용량"), ("gpu", "GPU 사용량 (NVIDIA)"), ("gpu-temperature", "GPU 온도 (NVIDIA)"), ("network-up", "이더넷 업로드"), ("network-down", "이더넷 다운로드"), ("macro", "키 매크로 / 텍스트"), ("media", "미디어 제어"), ("volume", "시스템 볼륨"), ("usb-eject", "USB 모두 안전하게 제거"), ("file-share", "파일 공유 서버"), ("shutdown-timer", "Windows 자동 종료") };
+    static readonly (string Key, string Label)[] Types = { ("url", "웹사이트"), ("program", "프로그램"), ("folder", "지정 폴더 열기"), ("path", "파일 / 폴더"), ("clock", "실시간 시계"), ("cpu", "CPU 사용량"), ("memory", "메모리 사용량"), ("gpu", "GPU 사용량 (NVIDIA)"), ("gpu-temperature", "GPU 온도 (NVIDIA)"), ("network-up", "이더넷 업로드"), ("network-down", "이더넷 다운로드"), ("macro", "키 매크로 / 텍스트"), ("media", "미디어 제어"), ("volume", "시스템 볼륨"), ("usb-eject", "USB 모두 안전하게 제거"), ("file-share", "파일 공유 서버"), ("shutdown-timer", "Windows 자동 종료"), ("sound","사운드 재생"), ("countdown","타이머") };
     public SettingsWindow(DockWindow dock)
     {
         this.dock = dock; draft = dock.Config.Clone(); Title = "MacDock WPF 설정"; Icon = AppIcons.WindowIcon(); Width = 940; Height = 800; MinWidth = 740; MinHeight = 550;
         Background = DockWindow.Brush("#11151D"); Foreground = DockWindow.Brush("#E8EDF6"); FontFamily = new FontFamily("Segoe UI, Malgun Gothic");
         var layout = new DockPanel { Background = Background }; Content = layout;
         var header = new Grid { Margin = new(34,26,34,20) }; header.ColumnDefinitions.Add(new()); header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-        var title = new StackPanel(); title.Children.Add(Text("MacDock  WPF", 32)); title.Children.Add(Text("자주 쓰는 동작을, 손이 닿는 곳에.", 13, "#9CABBF")); header.Children.Add(title);
+        header.Children.Add(Text("MacDock 설정", 32));
         var save = Button("변경 저장", Save); save.Background = DockWindow.Brush("#98D2CA"); save.Foreground = DockWindow.Brush("#14292B"); save.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(save,1); header.Children.Add(save);
         DockPanel.SetDock(header,Dock.Top); layout.Children.Add(header);
         var footer = new Border { Background = DockWindow.Brush("#17202E"), Child = status }; DockPanel.SetDock(footer,Dock.Bottom); layout.Children.Add(footer);
@@ -46,6 +46,7 @@ public sealed class SettingsWindow : Window
             save.Visibility = tabs.SelectedIndex == 0 ? Visibility.Visible : Visibility.Hidden;
             if (tabs.SelectedIndex == 1 && !selectingShare) await share.LoadSettings();
         };
+        Closed += (_,_) => Soundboard.Stop("preview");
         layout.Children.Add(tabs); Render();
     }
     static TextBlock Text(string text, double size = 13, string color = "#E8EDF6") => new() { Text = text, FontSize = size, Foreground = DockWindow.Brush(color), Margin = new(0,0,0,8), TextWrapping = TextWrapping.Wrap };
@@ -71,17 +72,18 @@ public sealed class SettingsWindow : Window
         var monitors = new List<(string,string)> { ("", "기본 모니터") };
         monitors.AddRange(Forms.Screen.AllScreens.Select(s => (s.DeviceName, s.DeviceName + " · " + s.Bounds.Width + " × " + s.Bounds.Height)));
         if (!string.IsNullOrEmpty(draft.Monitor) && !monitors.Any(m => m.Item1 == draft.Monitor)) monitors.Add((draft.Monitor, draft.Monitor + " · 연결되지 않음 (기본 모니터 사용)"));
-        body.Children.Add(Choices(monitors, draft.Monitor, value => draft.Monitor = value));
+        body.Children.Add(Choices(monitors, draft.Monitor, value => { draft.Monitor = value; ResetPlacement(); }));
         body.Children.Add(Text("독 위치",13));
-        body.Children.Add(Choices(new[] { ("bottom","하단"), ("top","상단"), ("left","왼쪽 (세로)"), ("right","오른쪽 (세로)") }, draft.Position, value => draft.Position = value));
+        body.Children.Add(Choices(new[] { ("bottom","하단"), ("top","상단"), ("left","왼쪽 (세로)"), ("right","오른쪽 (세로)") }, draft.Position, value => { draft.Position = value; ResetPlacement(); }));
+        if (draft.FreeX.HasValue) body.Children.Add(Button("기본 가장자리 위치로 복귀", () => { ResetPlacement(); Render(); }));
         body.Children.Add(Text("독 줄 수 (상하 배치 시 행, 좌우 배치 시 열)"));
-        body.Children.Add(Choices(Enumerable.Range(1,6).Select(n => (n.ToString(), n + "줄")), draft.Rows.ToString(), value => draft.Rows = int.Parse(value)));
+        body.Children.Add(Choices(Enumerable.Range(1,6).Select(n => (n.ToString(), n + "줄")), draft.Rows.ToString(), value => { draft.Rows = int.Parse(value); Render(); }));
         AddSlider("버튼 크기 (px)",draft.Size,32,80,1,value => draft.Size = value);
         AddSlider("확대 배율",draft.Zoom,1,2.2,.1,value => draft.Zoom = value);
         AddSlider("버튼 간격 (px)",draft.Gap,4,20,1,value => draft.Gap = value);
-        AddSlider("가장자리 여백 (px)",draft.Bottom,0,100,1,value => draft.Bottom = value);
+        AddSlider("가장자리 여백 (px)",draft.Bottom,0,100,1,value => { draft.Bottom = value; ResetPlacement(); });
         var magnify = new CheckBox { Content = "마우스를 가까이 가져가면 확대", IsChecked = draft.Magnify }; magnify.Checked += (_,_) => draft.Magnify = true; magnify.Unchecked += (_,_) => draft.Magnify = false; body.Children.Add(magnify);
-        body.Children.Add(Text("Windows 작업 표시줄을 피해서 배치합니다. 버튼이 많으면 독 위에서 휠 또는 방향 버튼으로 페이지를 전환합니다.",12,"#94A3B8"));
+        body.Children.Add(Text("버튼이 많으면 독 위에서 휠 또는 방향 버튼으로 페이지를 전환합니다.",12,"#94A3B8"));
         var startup = new CheckBox { Content = "Windows 시작 시 자동 실행 (현재 사용자 로그인 시)", IsChecked = autoStart };
         startup.Checked += (_,_) => autoStart = true; startup.Unchecked += (_,_) => autoStart = false; body.Children.Add(startup);
         var toolbar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new(0,14,0,14) };
@@ -98,14 +100,28 @@ public sealed class SettingsWindow : Window
         for (int i = 0; i < Presets.Items.Length; i++) { int preset = i; var button = Button(Presets.Items[i].Name, () => AddItem(Presets.Create(preset))); button.Margin = new(0,0,6,6); quick.Children.Add(button); }
         quick.Children.Add(Button("직접 매크로", () => AddItem(new DockItem { Type = "macro", Label = "새 매크로", Target = "Ctrl+C\nwait 300\nCtrl+V", Icon = "⌨", Color = "#59687D" })));
         body.Children.Add(quick);
-        body.Children.Add(Text("키 매크로: Ctrl+C, wait 300, Ctrl+V, text 안녕하세요를 한 줄씩 입력합니다. 독 클릭 전 사용 중이던 앱으로 입력됩니다.",12,"#94A3B8"));
+
         for (int i = 0; i < draft.Buttons.Count; i++) AddCard(draft.Buttons[i], i);
-        body.Children.Add(Text("Electron 버전과 설정을 따로 저장합니다. 이 버전은 확장 기능을 사용하지 않습니다.",12,"#94A3B8"));
+
     }
-    void AddItem(DockItem item)
+    internal void SyncDraggedPosition(DockConfig config)
+    {
+        draft.FreeX = config.FreeX; draft.FreeY = config.FreeY; draft.Monitor = config.Monitor;
+        Render();
+    }
+
+    internal void SyncDraggedButton(string source, string target)
+    {
+        DockWindow.MoveButton(draft,source,target);
+        Render();
+    }
+
+    void ResetPlacement() { draft.FreeX = null; draft.FreeY = null; }
+
+    void AddItem(DockItem item, int? index = null)
     {
         if (draft.Buttons.Count >= 100) { status.Text = "버튼은 100개까지 가능합니다."; return; }
-        draft.Buttons.Add(item); Render(); status.Text = item.Label + " 버튼을 추가했습니다. 변경 저장을 누르면 독에 적용됩니다.";
+        draft.Buttons.Insert(index ?? draft.Buttons.Count, item); Render(); status.Text = item.Label + " 버튼을 추가했습니다. 변경 저장을 누르면 독에 적용됩니다.";
     }
     void AddCard(DockItem item, int index)
     {
@@ -113,17 +129,22 @@ public sealed class SettingsWindow : Window
         var top = new Grid(); top.ColumnDefinitions.Add(new() { Width = new GridLength(1,GridUnitType.Star) }); top.ColumnDefinitions.Add(new() { Width = new GridLength(190) }); top.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         var nameEditor = Input(item.Label,"버튼 이름 (폴더 버튼 하단에 표시)",value => item.Label = value);
         top.Children.Add(nameEditor);
-        var type = Choices(Types,item.Type,value => { item.Type = value; item.Target = value switch { "clock" => "24h", "macro" => "Ctrl+C", "media" => "PLAYPAUSE", "volume" => "up", "url" => "https://www.google.com", _ => "" }; Render(); }); Grid.SetColumn(type,1); top.Children.Add(type);
+        var type = Choices(Types,item.Type,value => { item.Type = value; if (value == "sound") item.Sound = Soundboard.DefaultSound; else if (value == "countdown") item.Sound = Soundboard.DefaultAlarm; item.Target = value switch { "clock" => "24h", "macro" => "Ctrl+C", "media" => "PLAYPAUSE", "volume" => "up", "url" => "https://www.google.com", _ => "" }; Render(); }); Grid.SetColumn(type,1); top.Children.Add(type);
         var order = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
         var up = Button("↑", () => { (draft.Buttons[index],draft.Buttons[index-1]) = (draft.Buttons[index-1],draft.Buttons[index]); Render(); }); up.IsEnabled = index > 0; order.Children.Add(up);
         var down = Button("↓", () => { (draft.Buttons[index],draft.Buttons[index+1]) = (draft.Buttons[index+1],draft.Buttons[index]); Render(); }); down.IsEnabled = index < draft.Buttons.Count-1; order.Children.Add(down);
         order.Children.Add(Button("×", () => { draft.Buttons.RemoveAt(index); Render(); })); Grid.SetColumn(order,2); top.Children.Add(order); content.Children.Add(top);
-        if (item.Type == "volume") {
+        var sizes = new List<(string,string)> { ("1x1","기본 · 1칸"), ("2x1","×2 · 가로 2칸") };
+        if (draft.Rows >= 2 || item.BlockSize == "2x2") sizes.Add(("2x2", draft.Rows >= 2 ? "2×2 · 4칸" : "2×2 · 현재 1줄에서는 가로 2칸"));
+        content.Children.Add(Text("블록 크기"));
+        content.Children.Add(Choices(sizes,item.BlockSize,value => item.BlockSize = value));
+        if (item.Type is "sound" or "countdown") AddAudioSettings(content,item);
+        else if (item.Type == "volume") {
             content.Children.Add(Choices(new[] { ("up","볼륨 올리기"),("down","볼륨 내리기"),("mute","음소거 켜기 / 끄기") },item.Target,value => { item.Target = value; Render(); }));
             if (item.Target != "mute") {
                 var row = new StackPanel { Orientation = Orientation.Horizontal }; row.Children.Add(Text("한 번 누를 때 바꿀 양 (%p) "));
                 var step = Input(item.VolumeStep.ToString(),"볼륨 조절 폭 1~100%p",value => { if (int.TryParse(value,out int n)) item.VolumeStep = n; }); step.Width = 75; validators[step] = () => int.TryParse(step.Text,out int n) && n >= 1 && n <= 100; row.Children.Add(step); content.Children.Add(row);
-                content.Children.Add(Text("예: 5%p로 설정하면 40% → 45%가 됩니다. Windows 기본 출력 장치를 제어합니다.",12,"#94A3B8"));
+                content.Children.Add(Text("Windows 기본 출력 장치의 볼륨을 조절합니다.",12,"#94A3B8"));
             }
         } else if (item.Type == "media") content.Children.Add(Choices(new[] { ("PLAYPAUSE","재생 / 일시정지"),("NEXT","다음 곡"),("PREVIOUS","이전 곡"),("STOP","정지"),("MUTE","음소거"),("VOLUMEUP","볼륨 증가 (Windows 기본 폭)"),("VOLUMEDOWN","볼륨 감소 (Windows 기본 폭)") },item.Target,value => item.Target = value));
         else if (item.Type == "usb-eject") content.Children.Add(Text("USB 메모리·외장 HDD/SSD를 모두 안전하게 제거합니다. 사용 중인 장치는 강제 제거하지 않으며, 완료·실패 결과를 표시합니다. 키보드·마우스·USB 허브는 제외됩니다.",12,"#98D2CA"));
@@ -171,6 +192,10 @@ public sealed class SettingsWindow : Window
         var palette = new WrapPanel { Margin = new Thickness(0,8,0,0) };
         foreach (string hex in IconLibrary.Colors) { string selectedColor = hex; var swatch = new Button { Width = 25, Height = 25, Padding = new Thickness(0), Margin = new Thickness(0,0,5,5), Background = DockWindow.Brush(hex), ToolTip = hex }; swatch.Click += (_,_) => color.Text = selectedColor; palette.Children.Add(swatch); }
         content.Children.Add(palette);
+        var duplicate = Button("복제하기", () => AddItem(item.Duplicate(), index + 1));
+        duplicate.HorizontalAlignment = HorizontalAlignment.Left;
+        duplicate.Margin = new(0,4,0,0);
+        content.Children.Add(duplicate);
     }
     bool ValidFields()
     {

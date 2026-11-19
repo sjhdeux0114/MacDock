@@ -30,6 +30,15 @@ public static class Program
             if (File.Exists(Store.FileName)) File.Copy(Store.FileName,Store.FileName + ".invalid-" + DateTime.Now.ToString("yyyyMMddHHmmss"),false);
             config = DockConfig.Default();
         }
+        string? smokeBlockSize = args.FirstOrDefault(a => a.StartsWith("--block-size="))?.Split('=')[1];
+        if (smoke && smokeBlockSize != null) {
+            config = DockConfig.Default();
+            while (config.Buttons.Count < 17) config.Buttons.Add(config.Buttons[4].Duplicate());
+            config.Rows = 3; config.Size = 75; config.Gap = 8; config.Zoom = 1.5; config.Magnify = false;
+            config.Buttons[4].BlockSize = smokeBlockSize;
+            Store.Folder = Path.Combine(testOutput, "block-profile-" + smokeBlockSize);
+            Store.Save(config); config = Store.Load();
+        }
         if (smoke) {
             config.Position = args.FirstOrDefault(a => a.StartsWith("--position="))?.Split('=')[1] ?? "bottom";
             config.Validate();
@@ -63,9 +72,9 @@ public static class Program
                     Directory.CreateDirectory(testOutput);
                     if (dock.VisibleTileCount < 2) throw new Exception("독 버튼이 렌더링되지 않았습니다.");
                     bool vertical = config.Position is "left" or "right";
-                    if (vertical ? dock.ActualHeight <= dock.ActualWidth : dock.ActualWidth <= dock.ActualHeight) throw new Exception("Dock orientation mismatch");
+                    if (config.Rows == 1 && (vertical ? dock.ActualHeight <= dock.ActualWidth : dock.ActualWidth <= dock.ActualHeight)) throw new Exception("Dock orientation mismatch");
                     var tileViews = ((System.Windows.Controls.Canvas)dock.Content).Children.OfType<System.Windows.Controls.Border>().Where(v => v.Cursor == System.Windows.Input.Cursors.Hand).ToArray();
-                    Rect? previous = null;
+                    var previous = new System.Collections.Generic.List<Rect>();
                     var hoverTile = tileViews[0];
                     var overlay = (System.Windows.Controls.Border)((System.Windows.Controls.Grid)hoverTile.Child).Children[1];
                     foreach (var mouseEvent in new[] { UIElement.MouseEnterEvent, UIElement.MouseLeaveEvent }) {
@@ -76,8 +85,27 @@ public static class Program
                     foreach (var view in tileViews) {
                         var bounds = view.RenderTransform.TransformBounds(new Rect(0, 0, view.Width, view.Height));
                         if (bounds.Left < 0 || bounds.Top < 0 || bounds.Right > dock.ActualWidth || bounds.Bottom > dock.ActualHeight) throw new Exception("Tile clipped: " + config.Position);
-                        if (previous is Rect prior && (vertical ? bounds.Top < prior.Bottom : bounds.Left < prior.Right)) throw new Exception("Overlapping tiles");
-                        previous = bounds;
+                        if (previous.Any(prior => prior.IntersectsWith(bounds))) throw new Exception("Overlapping tiles");
+                        previous.Add(bounds);
+                    }
+                    if (smokeBlockSize != null) {
+                        double wide = 2 * config.Size + config.Gap;
+                        void VerifyBlock(string size) {
+                            var tile = ((System.Windows.Controls.Canvas)dock.Content).Children.OfType<System.Windows.Controls.Border>()
+                                .Where(v => v.Cursor == System.Windows.Input.Cursors.Hand).ElementAt(4);
+                            if (tile.Width != (size == "1x1" ? config.Size : wide) || tile.Height != (size == "2x2" ? wide : config.Size))
+                                throw new Exception("Unexpected footprint after resizing to " + size);
+                        }
+                        VerifyBlock(smokeBlockSize);
+                        foreach (bool zoom in new[] { false, true }) {
+                            foreach (string size in new[] { "1x1", "2x1", "2x2", "2x1", "1x1", smokeBlockSize }) {
+                                var changed = config.Clone(); changed.Magnify = zoom; changed.Buttons[4].BlockSize = size;
+                                Store.Save(changed);
+                                dock.Apply(Store.Load());
+                                await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                                VerifyBlock(size);
+                            }
+                        }
                     }
                     Capture(dock,Path.Combine(testOutput,"dock-" + config.Position + ".png"));
                     foreach (string side in new[] { "top", "bottom", "left", "right" }) {
@@ -99,6 +127,36 @@ public static class Program
                             if (rows == 6 && side == "bottom") Capture(dock, Path.Combine(testOutput,"dock-six-rows.png"));
                         }
                     }
+                    var mixed = DockConfig.Default();
+                    mixed.Rows = 3; mixed.Size = 66; mixed.Gap = 8; mixed.Magnify = false;
+                    mixed.Buttons[0].BlockSize = "2x2"; mixed.Buttons[1].BlockSize = "2x1";
+                    mixed.Buttons[4].BlockSize = "2x1"; mixed.Buttons[4].Label = "Windows 장치 관리자 열기";
+                    mixed.Buttons[5].Label = "USB 저장 장치 안전하게 제거";
+                    foreach (string side in new[] { "left","bottom" }) {
+                        mixed.Position = side; dock.Apply(mixed); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                        var views = ((System.Windows.Controls.Canvas)dock.Content).Children.OfType<System.Windows.Controls.Border>()
+                            .Where(v => v.Cursor == System.Windows.Input.Cursors.Hand).ToList();
+                        double span = mixed.Size * 2 + mixed.Gap;
+                        if (views[0].Width != span || views[0].Height != span || views[4].Width != span || views[4].Height != mixed.Size)
+                            throw new Exception("Mixed block footprint mismatch");
+                        var rects = views.Select(v => v.RenderTransform.TransformBounds(new Rect(0,0,v.Width,v.Height))).ToArray();
+                        for (int i=0;i<rects.Length;i++)
+                            if (!new Rect(0,0,dock.ActualWidth,dock.ActualHeight).Contains(rects[i]) || rects.Take(i).Any(r => r.IntersectsWith(rects[i])))
+                                throw new Exception("Mixed blocks clipped or overlapping");
+                        double MetricFont(int index, int line) {
+                            var layers = (System.Windows.Controls.Grid)views[index].Child;
+                            var stack = (System.Windows.Controls.StackPanel)layers.Children[0];
+                            var box = (System.Windows.Controls.Viewbox)stack.Children[line];
+                            return ((System.Windows.Controls.TextBlock)box.Child).FontSize;
+                        }
+                        for (int line = 0; line < 2; line++)
+                            if (!(MetricFont(0,line) > MetricFont(1,line) && MetricFont(1,line) > MetricFont(2,line)))
+                                throw new Exception("Metric font did not grow with block size");
+                        await System.Threading.Tasks.Task.Delay(1100);
+                        dock.VerifyDragFeedback();
+                        Capture(dock,Path.Combine(testOutput,"mixed-"+side+".png"));
+                    }
+                    await dock.VerifyCountdownDisplay(); Capture(dock,Path.Combine(testOutput,"countdown.png"));
                     dock.Apply(config); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                     var settings = new SettingsWindow(dock); settings.Show(); settings.UpdateLayout();
                     Capture(settings,Path.Combine(testOutput,"settings.png"));

@@ -16,7 +16,16 @@ public sealed class DockItem
     public string Image { get; set; } = "";
     public string Type { get; set; } = "url";
     public string Target { get; set; } = "";
+    public string BlockSize { get; set; } = "1x1";
+    public string Sound { get; set; } = Soundboard.DefaultAlarm;
+    public int TimerSeconds { get; set; } = 300;
     public int VolumeStep { get; set; } = 5;
+    public DockItem Duplicate()
+    {
+        var copy = (DockItem)MemberwiseClone();
+        copy.Id = Guid.NewGuid().ToString();
+        return copy;
+    }
     public static string FolderName(string path)
     {
         string trimmed = path.Trim().TrimEnd('\\', '/');
@@ -38,6 +47,8 @@ public sealed class DockConfig
     public int Version { get; set; } = 2;
     public string Monitor { get; set; } = "";
     public string Position { get; set; } = "bottom";
+    public double? FreeX { get; set; }
+    public double? FreeY { get; set; }
     public int Rows { get; set; } = 1;
     public double Size { get; set; } = 52;
     public double Zoom { get; set; } = 1.7;
@@ -63,12 +74,15 @@ public sealed class DockConfig
         var ids = new HashSet<string>();
         foreach (var b in Buttons)
         {
-            if (b == null || !new[] { "url", "program", "path", "folder", "clock", "cpu", "memory", "gpu", "gpu-temperature", "network-up", "network-down", "macro", "media", "volume", "usb-eject", "file-share", "shutdown-timer" }.Contains(b.Type)) throw new Exception("지원하지 않는 버튼 종류입니다.");
+            if (b == null || !new[] { "url", "program", "path", "folder", "clock", "cpu", "memory", "gpu", "gpu-temperature", "network-up", "network-down", "macro", "media", "volume", "usb-eject", "file-share", "shutdown-timer", "sound", "countdown" }.Contains(b.Type)) throw new Exception("지원하지 않는 버튼 종류입니다.");
+            if (b.BlockSize is not ("1x1" or "2x1" or "2x2")) throw new Exception("블록 크기를 확인하세요.");
             if (string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id)) { b.Id = Guid.NewGuid().ToString(); ids.Add(b.Id); }
             if (b.Label == null || b.Label.Length > 80 || b.Icon == null || b.Icon.Length > 16 || b.Target == null || b.Target.Length > 8192) throw new Exception("버튼 이름 또는 내용이 너무 깁니다.");
             if (!Regex.IsMatch(b.Color ?? "", "^#[0-9a-fA-F]{6}$")) throw new Exception("버튼 색상은 #387ee8 같은 형식입니다.");
             if ((b.Image?.Length ?? 0) > 4_000_000) throw new Exception("이미지는 2.9MB 이하로 사용하세요.");
             b.Image ??= "";
+            if (b.Type is "sound" or "countdown" && !Soundboard.IsValid(b.Sound)) throw new Exception("소리 파일 또는 내장 샘플을 선택하세요.");
+            if (b.Type == "countdown" && (b.TimerSeconds < 1 || b.TimerSeconds > 86399)) throw new Exception("타이머는 1초~23시간 59분 59초로 설정하세요.");
             if (b.VolumeStep < 1 || b.VolumeStep > 100) throw new Exception("볼륨 조절 폭은 1~100%p입니다.");
             if (b.Type == "macro") Macro.Parse(b.Target);
             if (b.Type == "volume" && !new[] { "up", "down", "mute" }.Contains(b.Target)) throw new Exception("볼륨 동작을 선택하세요.");

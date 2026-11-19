@@ -78,22 +78,23 @@ type attempt struct {
 	until time.Time
 }
 type App struct {
-	configPath     string
-	desktopKey     string
-	picker         sync.Mutex
-	data           string
-	root           *os.Root
-	config         Config
-	auth           sync.Mutex
-	filesystem     sync.RWMutex
-	uploads        sync.Mutex
-	uploadLocks    sync.Map
-	uploadProgress sync.Map
-	diagnosticsMu  sync.Mutex
-	diagnostics    []uploadRequestEvent
-	attempts       map[string]attempt
-	initial        string
-	thumbnails     chan struct{}
+	changeFirewallPort func(int) error
+	configPath         string
+	desktopKey         string
+	picker             sync.Mutex
+	data               string
+	root               *os.Root
+	config             Config
+	auth               sync.Mutex
+	filesystem         sync.RWMutex
+	uploads            sync.Mutex
+	uploadLocks        sync.Map
+	uploadProgress     sync.Map
+	diagnosticsMu      sync.Mutex
+	diagnostics        []uploadRequestEvent
+	attempts           map[string]attempt
+	initial            string
+	thumbnails         chan struct{}
 }
 
 func randomHex(n int) string {
@@ -598,6 +599,18 @@ func (a *App) settings(w http.ResponseWriter, r *http.Request) error {
 			_ = setStartup(old.AutoStart)
 		}
 		return err
+	}
+	if old.Port != next.Port && a.changeFirewallPort != nil {
+		if err := a.changeFirewallPort(next.Port); err != nil {
+			a.config = old
+			if body.AutoStart != nil {
+				_ = setStartup(old.AutoStart)
+			}
+			if restore := a.saveConfig(); restore != nil {
+				return problem(500, "방화벽 변경과 이전 설정 복원에 실패했습니다: "+restore.Error())
+			}
+			return problem(500, "방화벽 포트 변경에 실패했습니다. 관리자 승인 후 다시 저장하세요. 기존 설정을 유지합니다.")
+		}
 	}
 	if a.root != newRoot {
 		a.root.Close()

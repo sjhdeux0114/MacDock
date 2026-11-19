@@ -8,7 +8,7 @@ async function api(url, options = {}) {
   const abort = () => controller.abort();
   options.signal?.addEventListener('abort', abort, {once:true});
   if(options.signal?.aborted)controller.abort();
-  const timer = setTimeout(()=>controller.abort(), url.endsWith('/complete') ? 30*60*1000 : url==='/api/pick-folder' ? 10*60*1000 : 30000);
+  const timer = setTimeout(()=>controller.abort(), url.endsWith('/complete') ? 30*60*1000 : (url==='/api/pick-folder' || url==='/api/settings') ? 10*60*1000 : 30000);
   try {
     const res = await fetch(url, { ...options, signal:controller.signal, headers: { 'X-FileShare':'1', ...(options.body ? { 'Content-Type':'application/json' } : {}), ...options.headers } });
     const data = await res.json(); if (!res.ok) { if (res.status === 401) showLogin(); throw Object.assign(new Error(data.error || '요청에 실패했습니다.'), {status:res.status}); } return data;
