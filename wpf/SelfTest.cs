@@ -25,16 +25,26 @@ public static class SelfTest
             Check(UsbEject.Eject(Array.Empty<UsbEject.Device>(), _ => throw new Exception()).Contains("없습니다"), "No USB devices");
             var usbConfig = new DockConfig { Buttons = new() { new DockItem { Type = "usb-eject", Label = "USB 모두 제거" } } }; usbConfig.Validate();
             Check(usbConfig.Clone().Buttons.Single().Type == "usb-eject" && Presets.Items.Any(p => p.Type == "usb-eject"), "USB config and preset round trip");
+            string serverFolder = Path.Combine(output, "fileshare-profile");
+            var share = FileShare.Command("info", folder: serverFolder);
+            Check(!share.Running && Directory.Exists(share.SharedRoot), "Load native FileShare settings offline");
             File.WriteAllText(Path.Combine(output,"usb-discovery.txt"), string.Join("\n", UsbEject.Discover().Select(d => d.Name + " | " + d.Id)));
             Check(true, "Native USB discovery (read only; no devices ejected)");
 
+            Check(ShutdownWindow.TryDelay("1","30",out int seconds) && seconds == 5400 && ShutdownWindow.TryDelay("","1",out seconds) && seconds == 60, "Shutdown duration in hours and minutes");
+            Check(!ShutdownWindow.TryDelay("0","0",out _) && !ShutdownWindow.TryDelay("0","60",out _) && !ShutdownWindow.TryDelay("-1","0",out _) && !ShutdownWindow.TryDelay("2147483647","0",out _), "Reject invalid shutdown durations");
+            Check(ShutdownWindow.WasCancelled(0) && !ShutdownWindow.WasCancelled(1116), "Cancel existing Windows timer or open duration dialog");
+            Reject(() => ShutdownWindow.WasCancelled(5), "Report failed shutdown cancellation");
             var config = DockConfig.Default(); config.Validate(); Check(config.Buttons.Any(b => b.Type == "volume"),"Volume defaults");
-            Check(System.Text.Json.JsonSerializer.Deserialize<DockConfig>("{\"bottom\":17}", Store.Json) is { Position: "bottom", Bottom: 17 }, "Legacy dock position");
+            Check(System.Text.Json.JsonSerializer.Deserialize<DockConfig>("{\"bottom\":17}", Store.Json) is { Position: "bottom", Bottom: 17, Rows: 1 }, "Legacy dock position");
             foreach (string position in new[] { "bottom", "top", "left", "right" }) {
                 var positioned = config.Clone(); positioned.Position = position; positioned.Validate();
                 Store.Folder = Path.Combine(output,"position-profile"); Store.Save(positioned);
                 Check(Store.Load().Position == position && positioned.Clone().Position == position, "Position persistence: " + position);
             }
+            var sixRows = config.Clone(); sixRows.Rows = 6; sixRows.Validate(); Store.Save(sixRows);
+            Check(Store.Load().Rows == 6, "Persist dock rows"); sixRows.Rows = 7; Reject(sixRows.Validate, "Reject excess dock rows");
+            Check(DockWindow.PageCapacity(500,52,8,1.7,100,6) > DockWindow.PageCapacity(500,52,8,1.7,100,2), "Multi-row pagination");
             var invalidPosition = config.Clone(); invalidPosition.Position = "diagonal"; Reject(invalidPosition.Validate, "Invalid dock position");
             Check(DockWindow.PageCapacity(720, 52, 8, 1.7, 100) >= 8, "Vertical capacity at 150 percent DPI");
             Check(DockWindow.PageCapacity(500, 52, 8, 1.7, 100) >= 5, "Short screen capacity");

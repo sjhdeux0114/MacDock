@@ -7,16 +7,27 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>MacDock.Wpf</AssemblyName>
-    <Version>0.4.6</Version>
+    <Version>0.5.0</Version>
     <ApplicationIcon>Assets/macdock.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PlatformTarget>x64</PlatformTarget>
+    <GoTool Condition="'$(GoTool)' == ''">go</GoTool>
+    <ShareRoot>$(MSBuildProjectDirectory)\..\fileshare</ShareRoot>
+    <ShareOutput>$(MSBuildProjectDirectory)\obj\$(Configuration)\fileshare\MacDockShare.dll</ShareOutput>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
     <!-- WPF owns process DPI awareness through the manifest; Forms is used only for tray/monitor APIs. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets/macdock.ico" />
+    <ShareInput Include="$(ShareRoot)\*.go;$(ShareRoot)\go.mod;$(ShareRoot)\public\*" />
+    <Content Include="$(ShareOutput)" Link="MacDockShare.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Assets/FileShare-Go-LICENSE.txt" LogicalName="MacDock.FileShare.GoLicense" />
     <EmbeddedResource Include="Assets/macdock-tray.ico" LogicalName="MacDock.TrayIcon" />
   </ItemGroup>
+  <Target Name="BuildFileShare" BeforeTargets="PrepareForBuild" Inputs="@(ShareInput)" Outputs="$(ShareOutput)">
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(ShareOutput)'))" />
+    <Exec WorkingDirectory="$(ShareRoot)" EnvironmentVariables="CGO_ENABLED=1;GOOS=windows;GOARCH=amd64" Command="&quot;$(GoTool)&quot; build -trimpath -buildmode=c-shared -ldflags=&quot;-s -w&quot; -o &quot;$(ShareOutput)&quot; ." />
+  </Target>
 </Project>

@@ -38,6 +38,7 @@ public sealed class DockConfig
     public int Version { get; set; } = 2;
     public string Monitor { get; set; } = "";
     public string Position { get; set; } = "bottom";
+    public int Rows { get; set; } = 1;
     public double Size { get; set; } = 52;
     public double Zoom { get; set; } = 1.7;
     public double Gap { get; set; } = 8;
@@ -56,12 +57,13 @@ public sealed class DockConfig
     public void Validate()
     {
         if (!double.IsFinite(Size) || Size < 32 || Size > 80 || !double.IsFinite(Zoom) || Zoom < 1 || Zoom > 2.2 || !double.IsFinite(Gap) || Gap < 4 || Gap > 20 || !double.IsFinite(Bottom) || Bottom < 0 || Bottom > 100) throw new Exception("독 크기 또는 간격의 범위를 확인하세요.");
+        if (Rows is < 1 or > 6) throw new Exception("독 줄 수는 1~6 사이로 선택하세요.");
         if (Position is not ("bottom" or "top" or "left" or "right")) throw new Exception("독 위치를 선택하세요.");
         if (Buttons == null || Buttons.Count > 100) throw new Exception("버튼은 100개까지 사용할 수 있습니다.");
         var ids = new HashSet<string>();
         foreach (var b in Buttons)
         {
-            if (b == null || !new[] { "url", "program", "path", "folder", "clock", "cpu", "memory", "gpu", "gpu-temperature", "network-up", "network-down", "macro", "media", "volume", "usb-eject" }.Contains(b.Type)) throw new Exception("지원하지 않는 버튼 종류입니다.");
+            if (b == null || !new[] { "url", "program", "path", "folder", "clock", "cpu", "memory", "gpu", "gpu-temperature", "network-up", "network-down", "macro", "media", "volume", "usb-eject", "file-share", "shutdown-timer" }.Contains(b.Type)) throw new Exception("지원하지 않는 버튼 종류입니다.");
             if (string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id)) { b.Id = Guid.NewGuid().ToString(); ids.Add(b.Id); }
             if (b.Label == null || b.Label.Length > 80 || b.Icon == null || b.Icon.Length > 16 || b.Target == null || b.Target.Length > 8192) throw new Exception("버튼 이름 또는 내용이 너무 깁니다.");
             if (!Regex.IsMatch(b.Color ?? "", "^#[0-9a-fA-F]{6}$")) throw new Exception("버튼 색상은 #387ee8 같은 형식입니다.");

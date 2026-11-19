@@ -12,24 +12,41 @@ namespace MacDock;
 
 public sealed class SettingsWindow : Window
 {
+    readonly TabControl tabs = new();
+    readonly FileShareSettings share = new();
+    bool selectingShare;
+    internal async System.Threading.Tasks.Task ShowFileShare()
+    {
+        selectingShare = true;
+        try { tabs.SelectedIndex = 1; } finally { selectingShare = false; }
+        await share.Execute("start");
+    }
     readonly DockWindow dock;
     DockConfig draft;
     readonly StackPanel body = new();
     readonly TextBlock status = new() { Text = "준비됨", Margin = new(30,10,30,10) };
     readonly Dictionary<TextBox, Func<bool>> validators = new();
     bool autoStart = AutoStart.Enabled();
-    static readonly (string Key, string Label)[] Types = { ("url", "웹사이트"), ("program", "프로그램"), ("folder", "지정 폴더 열기"), ("path", "파일 / 폴더"), ("clock", "실시간 시계"), ("cpu", "CPU 사용량"), ("memory", "메모리 사용량"), ("gpu", "GPU 사용량 (NVIDIA)"), ("gpu-temperature", "GPU 온도 (NVIDIA)"), ("network-up", "이더넷 업로드"), ("network-down", "이더넷 다운로드"), ("macro", "키 매크로 / 텍스트"), ("media", "미디어 제어"), ("volume", "시스템 볼륨"), ("usb-eject", "USB 모두 안전하게 제거") };
+    static readonly (string Key, string Label)[] Types = { ("url", "웹사이트"), ("program", "프로그램"), ("folder", "지정 폴더 열기"), ("path", "파일 / 폴더"), ("clock", "실시간 시계"), ("cpu", "CPU 사용량"), ("memory", "메모리 사용량"), ("gpu", "GPU 사용량 (NVIDIA)"), ("gpu-temperature", "GPU 온도 (NVIDIA)"), ("network-up", "이더넷 업로드"), ("network-down", "이더넷 다운로드"), ("macro", "키 매크로 / 텍스트"), ("media", "미디어 제어"), ("volume", "시스템 볼륨"), ("usb-eject", "USB 모두 안전하게 제거"), ("file-share", "파일 공유 서버"), ("shutdown-timer", "Windows 자동 종료") };
     public SettingsWindow(DockWindow dock)
     {
         this.dock = dock; draft = dock.Config.Clone(); Title = "MacDock WPF 설정"; Icon = AppIcons.WindowIcon(); Width = 940; Height = 800; MinWidth = 740; MinHeight = 550;
         Background = DockWindow.Brush("#11151D"); Foreground = DockWindow.Brush("#E8EDF6"); FontFamily = new FontFamily("Segoe UI, Malgun Gothic");
         var layout = new DockPanel { Background = Background }; Content = layout;
         var header = new Grid { Margin = new(34,26,34,20) }; header.ColumnDefinitions.Add(new()); header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-        var title = new StackPanel(); title.Children.Add(Text("YOUR WORKSPACE, ONE ROW.", 10, "#8AC5C4")); title.Children.Add(Text("MacDock  WPF", 32)); title.Children.Add(Text("자주 쓰는 동작을, 손이 닿는 곳에.", 13, "#9CABBF")); header.Children.Add(title);
+        var title = new StackPanel(); title.Children.Add(Text("MacDock  WPF", 32)); title.Children.Add(Text("자주 쓰는 동작을, 손이 닿는 곳에.", 13, "#9CABBF")); header.Children.Add(title);
         var save = Button("변경 저장", Save); save.Background = DockWindow.Brush("#98D2CA"); save.Foreground = DockWindow.Brush("#14292B"); save.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(save,1); header.Children.Add(save);
         DockPanel.SetDock(header,Dock.Top); layout.Children.Add(header);
         var footer = new Border { Background = DockWindow.Brush("#17202E"), Child = status }; DockPanel.SetDock(footer,Dock.Bottom); layout.Children.Add(footer);
-        body.Margin = new(34,0,34,30); layout.Children.Add(new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled }); Render();
+        body.Margin = new(34,0,34,30); tabs.Background = Background; tabs.Foreground = Foreground;
+        tabs.Items.Add(new TabItem { Header = "독 설정", Content = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled } });
+        tabs.Items.Add(new TabItem { Header = "파일 공유 서버", Content = new ScrollViewer { Content = share, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+        tabs.SelectionChanged += async (_, e) => {
+            if (e.Source != tabs) return;
+            save.Visibility = tabs.SelectedIndex == 0 ? Visibility.Visible : Visibility.Hidden;
+            if (tabs.SelectedIndex == 1 && !selectingShare) await share.LoadSettings();
+        };
+        layout.Children.Add(tabs); Render();
     }
     static TextBlock Text(string text, double size = 13, string color = "#E8EDF6") => new() { Text = text, FontSize = size, Foreground = DockWindow.Brush(color), Margin = new(0,0,0,8), TextWrapping = TextWrapping.Wrap };
     static Button Button(string text, Action handler) { var button = new Button { Content = text }; button.Click += (_, _) => handler(); return button; }
@@ -57,6 +74,8 @@ public sealed class SettingsWindow : Window
         body.Children.Add(Choices(monitors, draft.Monitor, value => draft.Monitor = value));
         body.Children.Add(Text("독 위치",13));
         body.Children.Add(Choices(new[] { ("bottom","하단"), ("top","상단"), ("left","왼쪽 (세로)"), ("right","오른쪽 (세로)") }, draft.Position, value => draft.Position = value));
+        body.Children.Add(Text("독 줄 수 (상하 배치 시 행, 좌우 배치 시 열)"));
+        body.Children.Add(Choices(Enumerable.Range(1,6).Select(n => (n.ToString(), n + "줄")), draft.Rows.ToString(), value => draft.Rows = int.Parse(value)));
         AddSlider("버튼 크기 (px)",draft.Size,32,80,1,value => draft.Size = value);
         AddSlider("확대 배율",draft.Zoom,1,2.2,.1,value => draft.Zoom = value);
         AddSlider("버튼 간격 (px)",draft.Gap,4,20,1,value => draft.Gap = value);
@@ -108,6 +127,8 @@ public sealed class SettingsWindow : Window
             }
         } else if (item.Type == "media") content.Children.Add(Choices(new[] { ("PLAYPAUSE","재생 / 일시정지"),("NEXT","다음 곡"),("PREVIOUS","이전 곡"),("STOP","정지"),("MUTE","음소거"),("VOLUMEUP","볼륨 증가 (Windows 기본 폭)"),("VOLUMEDOWN","볼륨 감소 (Windows 기본 폭)") },item.Target,value => item.Target = value));
         else if (item.Type == "usb-eject") content.Children.Add(Text("USB 메모리·외장 HDD/SSD를 모두 안전하게 제거합니다. 사용 중인 장치는 강제 제거하지 않으며, 완료·실패 결과를 표시합니다. 키보드·마우스·USB 허브는 제외됩니다.",12,"#98D2CA"));
+        else if (item.Type == "shutdown-timer") content.Children.Add(Text("종료까지 남은 시간과 분을 입력해 예약합니다. 예약 중에 버튼을 다시 누르면 즉시 취소됩니다.",12,"#98D2CA"));
+        else if (item.Type == "file-share") content.Children.Add(Text("같은 Wi-Fi의 기기와 파일을 주고받습니다. MacDock 설정의 파일 공유 서버 탭에서 공유 폴더와 비밀번호를 관리합니다.",12,"#98D2CA"));
         else if (item.Type == "clock") content.Children.Add(Choices(new[] { ("24h","24시간"),("12h","12시간") },item.Target,value => item.Target = value));
         else if (!new[] { "cpu","memory","gpu","gpu-temperature","network-up","network-down" }.Contains(item.Type)) {
             var target = Input(item.Target,"URL / 경로 / 매크로",value => {

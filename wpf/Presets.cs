@@ -11,7 +11,12 @@ public static class Presets
         ("파일 탐색기", "program", "explorer.exe", "▰"), ("작업 관리자", "program", "taskmgr.exe", "▥"),
         ("Windows 설정", "program", "ms-settings:", "⚙"), ("화면 캡처", "macro", "Win+Shift+S", "✂"),
         ("복사", "macro", "Ctrl+C", "⧉"), ("붙여넣기", "macro", "Ctrl+V", "▣"), ("실행 취소", "macro", "Ctrl+Z", "↶"),
-        ("전체 선택", "macro", "Ctrl+A", "▧"), ("저장", "macro", "Ctrl+S", "▣"), ("USB 모두 제거", "usb-eject", "", "⏏")
+        ("전체 선택", "macro", "Ctrl+A", "▧"), ("저장", "macro", "Ctrl+S", "▣"), ("USB 모두 제거", "usb-eject", "", "⏏"),
+        ("파일 공유 서버", "file-share", "", "⇄"),
+        ("제어판", "program", System.IO.Path.Combine(Environment.SystemDirectory, "control.exe"), "⚙"),
+        ("장치 관리자", "program", System.IO.Path.Combine(Environment.SystemDirectory, "devmgmt.msc"), "▦"),
+        ("전원 관리", "program", System.IO.Path.Combine(Environment.SystemDirectory, "powercfg.cpl"), "ϟ"),
+        ("Windows 자동 종료", "shutdown-timer", "", "⏻")
     };
     public static DockItem Create(int index)
     {

@@ -21,6 +21,14 @@ public sealed class DockWindow : Window
     readonly Border toast = new() { CornerRadius = new(7), Background = Brush("#522839"), Padding = new(10,5,10,5), Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     readonly TextBlock message = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap };
     readonly List<Tile> tiles = new();
+    readonly List<Line> lines = new();
+    int visibleLines = 1;
+    sealed class Line(int first, int count, double length)
+    {
+        public readonly int First = first, Count = count;
+        public readonly double Length = length;
+        public double Fit, RenderedLength, Depth;
+    }
     readonly DispatcherTimer metricsTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     readonly Stopwatch watch = Stopwatch.StartNew();
     readonly Metrics metrics = new();
@@ -98,9 +106,13 @@ public sealed class DockWindow : Window
     bool NearEdge => Config.Position is "top" or "left";
     static bool Navigation(DockItem item) => item.Type is "previous-page" or "next-page";
     public static double ArrowLength(double size) => Math.Max(20, size * .35);
-    public static int PageCapacity(double available, double size, double gap, double zoom, int count)
+    public static int PageCapacity(double available, double size, double gap, double zoom, int count, int rows = 1)
     {
         double room = available - 40 - size * (zoom - 1);
+        if (rows > 1) {
+            int slots = rows * Math.Max(1, (int)Math.Floor((room + gap) / (size + gap)));
+            return count + 1 <= slots ? Math.Max(1, count) : Math.Max(1, slots - 3);
+        }
         if ((count + 1) * (size + gap) - gap <= room) return Math.Max(1, count);
         return Math.Max(1, (int)Math.Floor((room - size - 2 * (ArrowLength(size) + gap)) / (size + gap)));
     }
@@ -113,10 +125,20 @@ public sealed class DockWindow : Window
         var monitor = Native.MonitorFromPoint(new() { X = work.Left + 1, Y = work.Top + 1 }, 2);
         if (Native.GetDpiForMonitor(monitor, 0, out uint dpi, out _) == 0) scale = dpi / 96d;
         double available = (Vertical ? work.Height : work.Width) / scale;
-        pageSize = PageCapacity(available, Config.Size, Config.Gap, Config.Magnify ? Config.Zoom : 1, Config.Buttons.Count);
+        double crossRoom = (Vertical ? work.Width : work.Height) / scale;
+        double step = Config.Size + Config.Gap;
+        double extra = Config.Magnify ? Config.Size * (Config.Zoom - 1) : 0;
+        visibleLines = Math.Clamp((int)Math.Floor((crossRoom - 40 - extra + Config.Gap) / step), 1, Config.Rows);
+        pageSize = PageCapacity(available, Config.Size, Config.Gap, Config.Magnify ? Config.Zoom : 1, Config.Buttons.Count, visibleLines);
         int shown = Math.Min(pageSize, Config.Buttons.Count) + 1;
-        double width = Math.Min(available, shown * (Config.Size + Config.Gap) - Config.Gap + (Config.Buttons.Count > pageSize ? 2 * (ArrowLength(Config.Size) + Config.Gap) : 0) + Config.Size * (Config.Magnify ? Config.Zoom - 1 : 0) + 40);
-        double height = Config.Size * Config.Zoom + 70;
+        bool paging = Config.Buttons.Count > pageSize;
+        int slots = shown + (paging ? 2 : 0);
+        int rows = Math.Min(visibleLines, slots);
+        int columns = (slots + rows - 1) / rows;
+        double span = columns * step - Config.Gap;
+        if (rows == 1 && paging) span -= 2 * (Config.Size - ArrowLength(Config.Size));
+        double width = Math.Min(available, span + extra + 40);
+        double height = rows * step - Config.Gap + extra + 70;
         int pw = Math.Min(work.Width, (int)Math.Ceiling((Vertical ? height : width) * scale));
         int ph = Math.Min(work.Height, (int)Math.Ceiling((Vertical ? width : height) * scale));
         int margin = (int)(Config.Bottom * scale);
@@ -151,7 +173,7 @@ public sealed class DockWindow : Window
                 try { tile.Frames = ImageFrames.Load(item.Image); tile.Image = new Image { Source = tile.Frames.Frames[0], Stretch = Stretch.UniformToFill }; view.Child = tile.Image; view.Clip = new RectangleGeometry(new Rect(0,0,Config.Size,Config.Size),14,14); }
                 catch { view.ToolTip = item.Label + " · 이미지 형식을 확인하세요"; }
             }
-            if (item.Type == "folder" || item.Type == "path" || item.Type == "macro" || item.Type == "program" || item.Type == "usb-eject") {
+            if (item.Type == "folder" || item.Type == "path" || item.Type == "macro" || item.Type == "program" || item.Type == "usb-eject" || item.Type == "file-share" || item.Type == "shutdown-timer") {
                 var graphic = (UIElement)view.Child; view.Child = null;
                 var folderContent = new Grid();
                 folderContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -163,19 +185,41 @@ public sealed class DockWindow : Window
                     Margin = new Thickness(3,0,3,2), VerticalAlignment = VerticalAlignment.Center };
                 Grid.SetRow(caption,1); folderContent.Children.Add(caption); view.Child = folderContent;
             }
+            var graphicLayer = view.Child;
+            view.Child = null;
+            var layers = new Grid();
+            layers.Children.Add(graphicLayer);
+            var highlight = new Border {
+                CornerRadius = view.CornerRadius, BorderThickness = new(2),
+                BorderBrush = Brush("#BCFFF1"), Background = Brush("#247AE7D5"),
+                IsHitTestVisible = false, Visibility = Visibility.Hidden
+            };
+            layers.Children.Add(highlight);
+            view.Child = layers;
+            view.MouseEnter += (_, _) => highlight.Visibility = Visibility.Visible;
+            view.MouseLeave += (_, _) => highlight.Visibility = Visibility.Hidden;
             view.MouseLeftButtonUp += async (_, e) => {
                 e.Handled = true;
                 try {
-                    if (item.Type == "settings") OpenSettings();
+                    if (item.Type == "file-share") { OpenSettings(); if (settings != null) await settings.ShowFileShare(); }
+                    else if (item.Type == "settings") OpenSettings();
                     else if (item.Type == "previous-page" || item.Type == "next-page") { page = (page + (item.Type == "next-page" ? 1 : -1) + (Config.Buttons.Count - 1) / pageSize + 1) % ((Config.Buttons.Count - 1) / pageSize + 1); Rebuild(); }
                     else { if (item.Type == "usb-eject") Notify("USB 저장장치를 안전하게 제거하는 중입니다…"); await Actions.Run(item); if (item.Type == "volume") Sample(); }
                 } catch (Exception error) { Notify(error.Message); }
             };
             canvas.Children.Add(view); tiles.Add(tile);
         }
-        double plateLength = tiles.Sum(TileLength) + (tiles.Count - 1) * Config.Gap + 24;
-        plate.Width = Vertical ? Config.Size + 24 : plateLength;
-        plate.Height = Vertical ? plateLength : Config.Size + 24;
+        lines.Clear();
+        int rows = Math.Min(visibleLines, tiles.Count);
+        int first = 0;
+        for (int row = 0; row < rows; row++) {
+            int count = tiles.Count / rows + (row < tiles.Count % rows ? 1 : 0);
+            double span = (count - 1) * Config.Gap;
+            for (int i = first; i < first + count; i++) span += TileLength(tiles[i]);
+            lines.Add(new Line(first, count, span));
+            first += count;
+        }
+        plate.Width = plate.Height = 1;
         plate.RenderTransform = new MatrixTransform();
         canvas.Children.Add(toast); Panel.SetZIndex(toast, 1000); forceFrame = true; Sample(); Animate();
     }
@@ -213,42 +257,61 @@ public sealed class DockWindow : Window
         if (!forceFrame && mouse == lastMouse && !animatedImage && toast.Visibility != Visibility.Visible) return;
         lastMouse = mouse; forceFrame = false;
         long workStart = Stopwatch.GetTimestamp();
-        double s = Config.Size, gap = Config.Gap, baseWidth = tiles.Sum(TileLength) + (tiles.Count - 1) * gap;
+        double s = Config.Size, gap = Config.Gap;
         double length = Vertical ? ActualHeight : ActualWidth, depth = Vertical ? ActualWidth : ActualHeight;
         double along = Vertical ? mouse.Y : mouse.X, across = Vertical ? mouse.X : mouse.Y;
-        double start = (length - baseWidth) / 2, edge = NearEdge ? 20 : depth - 20;
+        double normalDepth = lines.Count * (s + gap) - gap;
+        double edge = NearEdge ? 20 : depth - 20;
         double inward = NearEdge ? across - edge : edge - across;
-        bool active = Config.Magnify && SystemParameters.ClientAreaAnimation && inward > -12 && inward < s * Config.Zoom + 10 && along > start - s && along < start + baseWidth + s;
-        double total = gap * (tiles.Count - 1), center = start;
-        for (int i = 0; i < tiles.Count; i++) {
-            double tileLength = TileLength(tiles[i]);
-            double influence = active && !Navigation(tiles[i].Item) ? Math.Max(0, 1 - Math.Abs(along - (center + tileLength / 2)) / (s * 2.2)) : 0;
-            center += tileLength + gap;
-            double target = 1 + (Config.Zoom - 1) * influence * influence;
-            tiles[i].Scale = Follow(tiles[i].Scale, target, dt);
-            if (Math.Abs(target - tiles[i].Scale) < .001) tiles[i].Scale = target; else forceFrame = true;
-            total += tileLength * tiles[i].Scale;
+        bool active = Config.Magnify && SystemParameters.ClientAreaAnimation && inward > -12 && inward < normalDepth + s * (Config.Zoom - 1) + 10;
+        int nearest = Math.Clamp((int)Math.Floor((inward + gap / 2) / (s + gap)), 0, lines.Count - 1);
+        int hoverLine = NearEdge ? nearest : lines.Count - 1 - nearest;
+        double fullDepth = -gap, maxLength = 0;
+        for (int row = 0; row < lines.Count; row++) {
+            var line = lines[row];
+            double center = (length - line.Length) / 2;
+            double expansion = 0, maxScale = 1;
+            for (int i = line.First; i < line.First + line.Count; i++) {
+                var tile = tiles[i];
+                double tileLength = TileLength(tile);
+                double influence = active && row == hoverLine && !Navigation(tile.Item)
+                    ? Math.Max(0, 1 - Math.Abs(along - (center + tileLength / 2)) / (s * 2.2)) : 0;
+                center += tileLength + gap;
+                double target = 1 + (Config.Zoom - 1) * influence * influence;
+                tile.Scale = Follow(tile.Scale, target, dt);
+                if (Math.Abs(target - tile.Scale) < .001) tile.Scale = target; else forceFrame = true;
+                expansion += tileLength * (tile.Scale - 1);
+                maxScale = Math.Max(maxScale, tile.Scale);
+            }
+            line.Fit = expansion > 0 ? Math.Clamp((length - 24 - line.Length) / expansion, 0, 1) : 1;
+            line.RenderedLength = line.Length + expansion * line.Fit;
+            line.Depth = s * (1 + (maxScale - 1) * line.Fit);
+            maxLength = Math.Max(maxLength, line.RenderedLength);
+            fullDepth += line.Depth + gap;
         }
-        // Keep all buttons visible when several neighbours magnify near a screen edge.
-        double expansion = total - baseWidth;
-        double fit = expansion > 0 ? Math.Clamp((length - 24 - baseWidth) / expansion, 0, 1) : 1;
-        total = baseWidth + expansion * fit;
-        double x = (length - total) / 2;
-        foreach (var tile in tiles) {
-            double renderedScale = 1 + (tile.Scale - 1) * fit;
-            double width = s * renderedScale;
-            double tileLength = TileLength(tile) * renderedScale;
-            double cross = NearEdge ? edge : edge - width;
-            double left = Vertical ? cross : x, top = Vertical ? x : cross;
-            ((MatrixTransform)tile.View.RenderTransform).Matrix = new Matrix(renderedScale, 0, 0, renderedScale, left, top);
-            tile.Hit = new Rect(left, top, tile.View.Width * renderedScale, tile.View.Height * renderedScale);
-            if (tile.Image != null && tile.Frames!.Frames.Count > 1) tile.Image.Source = tile.Frames.At(watch.ElapsedMilliseconds);
-            x += tileLength + gap;
+        double crossStart = NearEdge ? edge : edge - fullDepth;
+        double cross = crossStart;
+        foreach (var line in lines) {
+            double x = (length - line.RenderedLength) / 2;
+            for (int i = line.First; i < line.First + line.Count; i++) {
+                var tile = tiles[i];
+                double renderedScale = 1 + (tile.Scale - 1) * line.Fit;
+                double offset = NearEdge ? cross : cross + line.Depth - s * renderedScale;
+                double left = Vertical ? offset : x, top = Vertical ? x : offset;
+                ((MatrixTransform)tile.View.RenderTransform).Matrix = new Matrix(renderedScale, 0, 0, renderedScale, left, top);
+                tile.Hit = new Rect(left, top, tile.View.Width * renderedScale, tile.View.Height * renderedScale);
+                if (tile.Image != null && tile.Frames!.Frames.Count > 1) tile.Image.Source = tile.Frames.At(watch.ElapsedMilliseconds);
+                x += TileLength(tile) * renderedScale + gap;
+            }
+            cross += line.Depth + gap;
         }
-        double plateStart = (length - total - 24) / 2, plateCross = NearEdge ? edge - 12 : edge - s - 12;
-        ((MatrixTransform)plate.RenderTransform).Matrix = Vertical
-            ? new Matrix(1, 0, 0, (total + 24) / plate.Height, plateCross, plateStart)
-            : new Matrix((total + 24) / plate.Width, 0, 0, 1, plateStart, plateCross);
+        double plateStart = (length - maxLength - 24) / 2;
+        double plateDepth = lines.Count == 1 ? s : fullDepth;
+        double plateCross = NearEdge ? edge - 12 : edge - plateDepth - 12;
+        plate.Width = (Vertical ? plateDepth : maxLength) + 24;
+        plate.Height = (Vertical ? maxLength : plateDepth) + 24;
+        ((MatrixTransform)plate.RenderTransform).Matrix = new Matrix(1, 0, 0, 1,
+            Vertical ? plateCross : plateStart, Vertical ? plateStart : plateCross);
         if (toast.Visibility == Visibility.Visible) { toast.MaxWidth = Math.Max(1, ActualWidth - 4); toast.Measure(new Size(toast.MaxWidth, ActualHeight)); Canvas.SetLeft(toast, (ActualWidth - toast.DesiredSize.Width) / 2); Canvas.SetTop(toast, Config.Position == "top" ? Math.Max(2, ActualHeight - toast.DesiredSize.Height - 2) : 2); if (watch.ElapsedMilliseconds > toastUntil) toast.Visibility = Visibility.Collapsed; }
         if (MeasureFrames) FrameWorkMilliseconds.Add(Stopwatch.GetElapsedTime(workStart).TotalMilliseconds);
     }

@@ -74,7 +74,9 @@ public static class Actions
     public static async Task Run(DockItem item)
     {
         switch (item.Type) {
+
             case "clock": case "cpu": case "memory": case "gpu": case "gpu-temperature": case "network-up": case "network-down": return;
+            case "shutdown-timer": await ShutdownWindow.Toggle(); return;
             case "usb-eject": System.Windows.MessageBox.Show(await UsbEject.Run(), "USB 모두 안전하게 제거", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information); return;
             case "volume": await Task.Run(() => Audio.Change(item.Target, item.VolumeStep)); return;
             case "macro": await Macro.Run(item.Target); return;

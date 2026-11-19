@@ -1,4 +1,4 @@
-#define AppVersion "0.4.6"
+#define AppVersion "0.5.0"
 [Setup]
 AppId={{CC77C483-91CF-47D6-B644-93B47E1D7C84}
 AppName=MacDock
@@ -49,8 +49,12 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var Command: String;
 begin
-  if CurUninstallStep = usUninstall then
+  if CurUninstallStep = usUninstall then begin
     if RegQueryStringValue(HKCU, RunKey, 'MacDock.Wpf', Command) then
       if CompareText(Command, '"' + ExpandConstant('{app}\MacDock.Wpf.exe') + '"') = 0 then
         RegDeleteValue(HKCU, RunKey, 'MacDock.Wpf');
+    if RegQueryStringValue(HKCU, RunKey, 'MacDock.FileShare', Command) then
+      if CompareText(Command, '"' + ExpandConstant('{app}\MacDock.Wpf.exe') + '"') = 0 then
+        RegDeleteValue(HKCU, RunKey, 'MacDock.FileShare');
+  end;
 end;
