@@ -15,7 +15,7 @@ internal sealed class BlockPage
     internal static List<BlockPage> Pack(DockConfig config, bool vertical, int lanes, int limit)
     {
         // A wide button remains horizontal even on a single-column side dock.
-        int cross = vertical ? Math.Max(2, lanes) : lanes;
+        int cross = vertical && config.Buttons.Any(item => item.BlockSize != "1x1") ? Math.Max(2, lanes) : lanes;
         BlockPage Layout(int start, int length, bool paging, out int consumed)
         {
             int columns = vertical ? cross : length, rows = vertical ? length : cross;

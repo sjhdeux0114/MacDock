@@ -85,18 +85,19 @@ public sealed partial class DockWindow
         };
     }
 
+    // Mirror the contents independently of the source opacity and layout transform.
+    internal static Border CreateDragFace(Tile source) => new() {
+        Width = source.Hit.Width, Height = source.Hit.Height, CornerRadius = source.View.CornerRadius,
+        Background = source.View.Background, BorderBrush = Brush("#BCFFF1"), BorderThickness = new(2),
+        Child = new Border { Background = new VisualBrush(source.View.Child) { Stretch = Stretch.Fill } },
+        Opacity = .82, IsHitTestVisible = false
+    };
+
     void ShowDragFeedback(Tile source, Point pointer)
     {
         if (dragPreview == null) {
-            // Mirror the contents, not the dimmed source or its canvas transform.
-            var face = new Border {
-                Width = source.Hit.Width, Height = source.Hit.Height, CornerRadius = source.View.CornerRadius,
-                Background = source.View.Background, BorderBrush = Brush("#BCFFF1"), BorderThickness = new(2),
-                Child = new Border { Background = new VisualBrush(source.View.Child) { Stretch = Stretch.Fill } },
-                Opacity = .82, IsHitTestVisible = false
-            };
             dragPreview = new Popup { Placement = PlacementMode.Relative, PlacementTarget = canvas,
-                AllowsTransparency = true, StaysOpen = true, IsHitTestVisible = false, Child = face };
+                AllowsTransparency = true, StaysOpen = true, IsHitTestVisible = false, Child = CreateDragFace(source) };
             source.View.Opacity = .32;
             Panel.SetZIndex(insertionMark, 999);
             canvas.Children.Add(insertionMark);

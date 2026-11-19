@@ -44,14 +44,18 @@ public sealed partial class DockWindow
         }
         foreach (var tile in tiles) {
             if (tile.Cooldown == null || !countdowns.TryGetValue(tile.Item.Id,out var timer)) continue;
-            int seconds = (int)Math.Ceiling(timer.Remaining(now).TotalSeconds);
-            tile.Value.Text = Countdown.Format(seconds);
-            tile.Cooldown.SetRemaining(timer.Phase is CountdownPhase.Running or CountdownPhase.Paused ? timer.Remaining(now).TotalSeconds / timer.Duration : 0);
-            if (tile.Phase == timer.Phase) continue;
-            tile.Phase = timer.Phase;
-            tile.Caption!.Text = timer.Phase switch { CountdownPhase.Running => "▶ 진행 중", CountdownPhase.Paused => "Ⅱ 일시정지", CountdownPhase.Finished => "✓ 완료", _ => tile.Item.Label };
-            tile.View.Background = timer.Phase switch { CountdownPhase.Running => TimerRunning, CountdownPhase.Paused => TimerPaused, CountdownPhase.Finished => TimerFinished, _ => Brush(tile.Item.Color) };
+            DisplayTimer(tile,timer,now);
         }
         countdownTick.IsEnabled = countdowns.Values.Any(t => t.Phase == CountdownPhase.Running);
+    }
+    static void DisplayTimer(Tile tile, Countdown timer, TimeSpan now)
+    {
+        int seconds = (int)Math.Ceiling(timer.Remaining(now).TotalSeconds);
+        tile.Value.Text = Countdown.Format(seconds);
+        tile.Cooldown!.SetRemaining(timer.Phase is CountdownPhase.Running or CountdownPhase.Paused ? timer.Remaining(now).TotalSeconds / timer.Duration : 0);
+        if (tile.Phase == timer.Phase) return;
+        tile.Phase = timer.Phase;
+        tile.Caption!.Text = timer.Phase switch { CountdownPhase.Running => "▶ 진행 중", CountdownPhase.Paused => "Ⅱ 일시정지", CountdownPhase.Finished => "✓ 완료", _ => tile.Item.Label };
+        tile.View.Background = timer.Phase switch { CountdownPhase.Running => TimerRunning, CountdownPhase.Paused => TimerPaused, CountdownPhase.Finished => TimerFinished, _ => DockScene.TileBrush(tile.Item.Color) };
     }
 }

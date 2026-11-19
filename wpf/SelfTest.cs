@@ -123,6 +123,18 @@ public static class SelfTest
 
 public sealed partial class DockWindow
 {
+    internal void VerifyPreview(DockScene preview)
+    {
+        if (preview.PageCount != PageCount || preview.page != page || preview.tiles.Count != tiles.Count)
+            throw new Exception("Preview pagination mismatch");
+        for (int i = 0; i < tiles.Count; i++) {
+            var live = tiles[i]; var copy = preview.tiles[i];
+            if (live.Item.Type != copy.Item.Type || live.Item.Label != copy.Item.Label ||
+                Math.Abs(live.Hit.X-copy.Hit.X) > 1 || Math.Abs(live.Hit.Y-copy.Hit.Y) > 1 ||
+                live.Hit.Size != copy.Hit.Size || live.Value.Text != copy.Value.Text || live.Caption?.Text != copy.Caption?.Text)
+                throw new Exception("Preview tile mismatch: " + live.Item.Label);
+        }
+    }
     internal async System.Threading.Tasks.Task VerifyCountdownDisplay()
     {
         var timer = new DockItem { Type = "countdown", Label = "집중 타이머", TimerSeconds = 120, BlockSize = "2x1" };

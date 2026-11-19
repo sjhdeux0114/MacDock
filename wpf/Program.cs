@@ -154,6 +154,8 @@ public static class Program
                                 throw new Exception("Metric font did not grow with block size");
                         await System.Threading.Tasks.Task.Delay(1100);
                         dock.VerifyDragFeedback();
+                        var editor = new SettingsWindow(dock);
+                        try { editor.VerifyPreview(); } finally { editor.Close(); }
                         Capture(dock,Path.Combine(testOutput,"mixed-"+side+".png"));
                     }
                     await dock.VerifyCountdownDisplay(); Capture(dock,Path.Combine(testOutput,"countdown.png"));
